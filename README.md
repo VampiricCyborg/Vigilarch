@@ -53,6 +53,7 @@ disagree, the operating contract in `claude.md` wins.
 | M1 | **Entanglement** — checkpoints, attestation DAG, sealing, fork proofs | not started |
 | `vigil-sim` | Deterministic seeded simulator over the real ledger and sync code | not started |
 | M2 | Sync — Merkle range reconciliation, priority classes 0–5, QUIC + mDNS on a LAN | not started |
+| M3-lite | Semantics — threads, multi-value registers, retractable assertions, `Contested` | not started |
 | M5 | Coverage — `Covered<T>`, coverage math, four-way silence classification | not started |
 | M4-lite | Field app — plain PWA over the WASM core, offline capture | not started |
 | M8-lite | Export pack + `vigil-verify`, the independent verifier | not started |

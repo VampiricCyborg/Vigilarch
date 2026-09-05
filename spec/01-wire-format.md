@@ -251,7 +251,8 @@ Field numbers are permanent (§2.3). "Opt" marks a field omitted when absent.
 it, a gap in an author's chain is indistinguishable from a chain the receiver has not yet
 finished fetching, and `vigil-verify` could only state that the links it holds are
 consistent with each other — not that the chain is unbroken. `seq` starts at 0 and
-increments by exactly 1 per entry by that author.
+increments by exactly 1 per entry by that author, and is verified jointly with `prev`
+per §6.6 — it is attacker-controlled and carries no weight alone.
 
 **Body variants.** The variant number comes from this table and MUST NOT be taken from
 the declaration order of the Rust enum.
@@ -324,6 +325,63 @@ MUST NOT be read as if it did.
 
 ---
 
+### 6.6 Chain integrity: `seq` and `prev` are verified jointly
+
+**Normative:** a verifier MUST check `seq` and `prev` together, and MUST NOT treat either
+as advisory when the other appears consistent.
+
+For an observation by author *A* at sequence *n*:
+
+- if *n* = 0, `prev` MUST be a zero-length byte string;
+- if *n* > 0, `prev` MUST equal the recomputed id of *A*'s observation at sequence
+  *n* - 1.
+
+Neither field is evidence on its own. `seq` is a number the author writes, and a
+malicious node sets it freely — it can claim sequence 900 on its second entry, or reuse
+sequence 12 for two different observations. `prev` is harder to forge because it is a
+hash, but a node can still chain honestly while lying about position. Checking one and
+accepting the other on trust gives an attacker a free field, so the pair is checked as a
+unit or not at all.
+
+#### A mismatch is an integrity finding, not a decode error
+
+These are different categories with different handling, and conflating them loses
+evidence:
+
+| | Decode error (§8) | Integrity finding (this section) |
+|---|---|---|
+| What happened | The bytes are not a well-formed canonical object | The bytes decode, and the signature verifies under `author` |
+| What it proves | Nothing about anyone — any device can emit garbage | That the holder of `author`'s key signed inconsistent claims |
+| Attributable | No | **Yes, to a specific key** |
+| Handling | Reject the frame; it contributes nothing | **Retain it.** Report the finding with the offending key and both conflicting entries |
+
+A verifier MUST NOT discard an observation because its chain claims are inconsistent. A
+signed, self-contradictory entry is the most valuable object the system can hold: it is
+cryptographic evidence of misconduct attributable to a key, and deleting it destroys the
+proof. This is the same reasoning that makes the ledger append-only (§6.3) and it is why
+fork detection quarantines a key rather than erasing its records (`02-entanglement.md`).
+
+#### Three outcomes, and why "incomplete" is not "violated"
+
+A full-chain verification pass MUST distinguish three results per author, and MUST NOT
+collapse the middle one into either neighbour:
+
+- **Verified** — every sequence from 0 to the highest held is present, and every `prev`
+  matches the recomputed id of its predecessor.
+- **Incomplete** — a sequence number is missing, and no held entry contradicts any other.
+  The verifier does not hold the whole chain. This is the *normal* state under partition
+  and MUST NOT be reported as a violation.
+- **Violated** — two entries claim the same `seq` with different ids, or a `prev` does
+  not match the predecessor the verifier holds. This is an integrity finding and is
+  attributable.
+
+Reporting "incomplete" as "verified" overstates what is known, which is the defect I5
+forbids. Reporting it as "violated" accuses an honest node of tampering because a link
+was slow, which under this system's threat model is just as bad: it makes the fork alarm
+meaningless, and an alarm nobody trusts protects nobody.
+
+---
+
 ## 7. Version negotiation
 
 Every connection begins with a version exchange, before any object is transferred. Every
@@ -354,6 +412,11 @@ fields of fixed shape.
 
 The node parses signed input from devices it does not control. This is the attack
 surface.
+
+Note the boundary with §6.6: this section is about bytes that are not well-formed. An
+object whose bytes are canonical and whose signature verifies, but whose chain claims are
+inconsistent, is **not** a decode error — it is an attributable integrity finding, and it
+is retained rather than rejected.
 
 A decoder MUST:
 

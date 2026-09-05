@@ -73,6 +73,23 @@ hand-reproducibility is the property the golden vectors are meant to test.
 message where a fixed 48 bytes will do. Safe here because the id already commits to the
 object type via its own tag.
 
+**These two decisions are coupled, and the coupling is load-bearing.** Signing a bare
+32-byte hash is safe *only* because that hash is domain-separated at derivation. The id
+of an observation and the id of an attestation cannot collide, because their preimages
+carry different tags, so a signature over one can never be presented as a signature over
+the other.
+
+Remove domain separation from §3.1 — flatten the tags, drop the version component, or
+"simplify" to `BLAKE3(cbor)` — and signatures become cross-type replayable *without any
+change to §4*. An attacker who constructed an attestation whose canonical CBOR matched
+some observation's could lift that observation's signature onto it. Nothing in the
+signature scheme would detect this, because from Ed25519's point of view the same message
+was signed.
+
+So: §3.1 and §4 may not be changed independently. Anyone proposing to alter id derivation
+must re-derive whether §4 is still sound, and say so in the ADR. If domain separation ever
+goes, signatures must move to the full preimage in the same change.
+
 ### An id is never accepted from the wire
 
 The receiver recomputes it (§3.2). The `id` field in the design document's structs is an

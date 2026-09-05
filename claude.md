@@ -71,6 +71,13 @@ severity is information, not a merge failure. Multi-value register, surfaced as
   ledger and sync code. Build alongside M1, not after. M2 is untestable without it.
 - **M2 Sync** — Merkle range reconciliation, priority classes 0–5, resumable transfer,
   QUIC + mDNS on a LAN.
+- **M3-lite Semantics** — `Thread` with `OrSet<Hash>` members, `MvRegister` for severity
+  and status, retractable `Assertion`, `Contested` surfaced in the UI, and property tests
+  on every merge (commutativity, associativity, idempotence). Manual thread membership
+  only. **Out:** entity resolution across sites, thread-to-thread links, and automatic
+  correlation of observations into threads. It exists because I6 is non-negotiable and
+  currently has no code behind it, and because the §20 step-6 demo needs something to
+  render.
 - **M5 Coverage & silence** — `Covered<T>` everywhere, event-rate-weighted coverage,
   four-way silence classification, coverage-aware UI components.
 - **M4-lite field app** — plain PWA, React + TS + Vite, `vigil-core` via WASM. Ugly is
