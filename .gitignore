@@ -24,3 +24,9 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# The operating contract is local-only: it is instructions to a coding agent,
+# not part of the published artifact. Ignored case-insensitively so that both
+# CLAUDE.md and claude.md are covered.
+CLAUDE.md
+claude.md

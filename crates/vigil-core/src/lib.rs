@@ -19,3 +19,24 @@
 //!   semantic disagreement visible rather than resolving it (§7.3).
 
 #![forbid(unsafe_code)]
+
+pub mod cbor;
+pub mod error;
+pub mod object;
+pub mod sign;
+pub mod types;
+
+pub use error::{DecodeError, SignatureError};
+pub use object::{
+    Attestation, BlobManifest, Checkpoint, Object, Observation, ObservationBody, PresenceEvent,
+    SIG_TAG, domain_sep,
+};
+pub use sign::{SignedObject, public_key, sign_id, signing_message, verify_id};
+pub use types::{GeoPoint, Hash, Hlc, OpaqueId, PubKey, Reading, Seq, Signature, SiteId};
+
+/// The wire version this build speaks (`spec/01-wire-format.md` §7).
+///
+/// It is part of every domain separation tag, so bumping it changes every content
+/// address in history — deliberately, since objects of different wire versions
+/// are different objects and must not be conflated (§3.1).
+pub const WIRE_VERSION: u32 = 1;

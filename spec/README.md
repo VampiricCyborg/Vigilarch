@@ -22,11 +22,12 @@ Rules:
 | `04-threat-model.md` | Adversaries, guarantees, explicit non-guarantees | after M1 |
 | `05-vocabulary.md` | The controlled tag vocabulary that makes signatures federate | M6 |
 
-All five are unwritten. **`01-wire-format.md` comes first**, and the golden vectors in
-`testdata/` are written directly against it, before any ledger code depends on it. The
-vectors are a test of this document as much as of the code: if you cannot hand-compute a
-`fields -> preimage -> id -> signature` triple straight from the text, the text is
-underspecified, and it is far cheaper to find that out now.
+`01-wire-format.md` is written; the other four are not. It came first, and the golden
+vectors in `testdata/` were written directly against it before any ledger code depended
+on it. The vectors are a test of that document as much as of the code: if you cannot
+hand-compute a `fields -> preimage -> id -> signature` triple straight from the text, the
+text is underspecified, and it is far cheaper to find that out early. `vigil-core` now
+reproduces all four of them, and the §10 worked example, byte for byte.
 
 `04-threat-model.md` is **not** a prerequisite for M0, despite what its place in the
 numbering suggests. §5.3 of the design document already carries the adversary table, and
