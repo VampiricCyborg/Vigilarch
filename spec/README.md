@@ -17,17 +17,25 @@ Rules:
 | Document | Covers | Milestone |
 |---|---|---|
 | `01-wire-format.md` | Canonical CBOR, content addressing, object encodings, version negotiation | M0 |
-| `02-entanglement.md` | Checkpoints, attestation exchange, the attestation DAG, sealing, fork proofs | M1 |
+| `02-entanglement.md` | Checkpoints, attestation exchange, the attestation DAG, the bracketing rule, fork proofs, and the non-guarantees | M1 |
 | `03-sync.md` | Merkle range reconciliation, priority classes, resumption, bundle framing | M2 |
 | `04-threat-model.md` | Adversaries, guarantees, explicit non-guarantees | after M1 |
 | `05-vocabulary.md` | The controlled tag vocabulary that makes signatures federate | M6 |
 
-`01-wire-format.md` is written; the other four are not. It came first, and the golden
-vectors in `testdata/` were written directly against it before any ledger code depended
-on it. The vectors are a test of that document as much as of the code: if you cannot
-hand-compute a `fields -> preimage -> id -> signature` triple straight from the text, the
-text is underspecified, and it is far cheaper to find that out early. `vigil-core` now
-reproduces all four of them, and the §10 worked example, byte for byte.
+`01-wire-format.md` and `02-entanglement.md` are written; `03` and `05` are not. `01`
+came first, and the golden vectors in `testdata/` were written directly against it before
+any ledger code depended on it. The vectors are a test of that document as much as of the
+code: if you cannot hand-compute a `fields -> preimage -> id -> signature` triple
+straight from the text, the text is underspecified, and it is far cheaper to find that
+out early. `vigil-core` now reproduces all four of them, and the §10 worked example, byte
+for byte.
+
+`02-entanglement.md` was written before the M1 code, the same way. It adds two objects to
+`01` additively — the `acks` field of `Observation` (§6.1) and `ForkProof` (§6.7),
+neither changing an existing content address — and states its non-guarantees as
+prominently as its guarantees, because overstating a temporal bound is the defect the
+whole project exists to avoid. See ADR-0002. Its golden vectors (an observation carrying
+`acks`; a fork proof) land with the M1 code.
 
 `04-threat-model.md` is **not** a prerequisite for M0, despite what its place in the
 numbering suggests. §5.3 of the design document already carries the adversary table, and

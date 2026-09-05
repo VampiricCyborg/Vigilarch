@@ -6,12 +6,15 @@ This document defines the canonical encoding, content addressing and signature s
 for every Vigilarch object, and the version negotiation that guards changes to them.
 
 It is normative. Where it and `docs/VIGILARCH.md` disagree, this document wins for
-anything on the encoding path; where it and `claude.md` disagree, `claude.md` wins.
-The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT** and **MAY** are used as
-in RFC 2119.
+anything on the encoding path — `docs/VIGILARCH.md` is the original design document and
+predates a scope cut. Anything off that path — project scope, and the invariants this
+encoding serves — is governed by the [README](../README.md#invariants). The key words
+**MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT** and **MAY** are used as in RFC 2119.
 
-Changing anything in §2 through §6 changes every content address in history. Such a
-change requires an ADR in `docs/adr/` and a wire version bump, without exception.
+Changing an existing encoding in §2 through §6 changes every content address in history,
+and requires an ADR in `docs/adr/` and a wire version bump, without exception. Purely
+additive changes — a new optional field, a new object type — take an ADR and new vectors
+but not a version bump; see §11.
 
 ---
 
@@ -246,6 +249,7 @@ Field numbers are permanent (§2.3). "Opt" marks a field omitted when absent.
 | 5 | `hlc` | `Hlc` | |
 | 6 | `body` | `[variant: uint, payload: map]` | |
 | 7 | `geo` | `GeoPoint` | opt |
+| 8 | `acks` | `[Hash, ...]` — attestation ids this entry commits to | opt |
 
 `seq` does not appear in `docs/VIGILARCH.md` §7.2 and is added here deliberately. Without
 it, a gap in an author's chain is indistinguishable from a chain the receiver has not yet
@@ -253,6 +257,14 @@ finished fetching, and `vigil-verify` could only state that the links it holds a
 consistent with each other — not that the chain is unbroken. `seq` starts at 0 and
 increments by exactly 1 per entry by that author, and is verified jointly with `prev`
 per §6.6 — it is attacker-controlled and carries no weight alone.
+
+`acks` was added for M1 and is likewise absent from `docs/VIGILARCH.md` §7.2. It is an
+ascending, duplicate-free list of the ids of attestations the author commits to at this
+point in its chain; because the entry's content address covers it, the author cannot
+later present a history without those attestations except by forking. When present it
+MUST be non-empty. `spec/02-entanglement.md` §3.4 defines its semantics and the
+integrity checks a verifier applies to it; this section defines only that it is field 8
+and how it encodes.
 
 **Body variants.** The variant number comes from this table and MUST NOT be taken from
 the declaration order of the Rust enum.
@@ -379,6 +391,36 @@ Reporting "incomplete" as "verified" overstates what is known, which is the defe
 forbids. Reporting it as "violated" accuses an honest node of tampering because a link
 was slow, which under this system's threat model is just as bad: it makes the fork alarm
 meaningless, and an alarm nobody trusts protects nobody.
+
+---
+
+### 6.7 Fork proof — tag `vigilarch/1/forkproof`
+
+`spec/02-entanglement.md` §6 defines how a fork proof is produced, propagated and acted
+on. This section defines only its bytes. It was added for M1; it changes no existing
+content address (§11).
+
+| # | Field | Type |
+|---|---|---|
+| 1 | `key` | `PubKey` — the equivocating author |
+| 2 | `a` | `[preimage: bstr, sig: bstr of 64 bytes]` |
+| 3 | `b` | `[preimage: bstr, sig: bstr of 64 bytes]` |
+
+`a` and `b` are the two conflicting chain entries. Each `preimage` is the full
+domain-separated preimage of an `Observation` — `"vigilarch/1/observation" || 0x00 ||
+canonical_cbor` (§3.1) — and each `sig` is that entry's detached Ed25519 signature. The
+pair is ordered so that the entry with the lexicographically smaller recomputed id is
+`a`; this makes the fork proof's own content address independent of which node built it.
+
+A fork proof is self-verifying with no external input. A verifier MUST decode both
+preimages as `Observation`s (§6.1), MUST check both carry `author` equal to `key`, MUST
+check both signatures verify under `key` (§4), and MUST check the two entries collide —
+the same `seq` with different ids, or the same `prev` with different ids. A fork proof
+that fails any check is not evidence and is discarded like any malformed frame (§8).
+
+A fork proof carries no `hlc` and no ordering claim. It proves the holder of `key` signed
+two irreconcilable histories; it does not say which came first, when either was written,
+or that any observation in either branch is false.
 
 ---
 
@@ -546,7 +588,7 @@ sig = ddb1adecbbaea87a5b7454af66ab0a52b99b14acb3bb04eb4226668717bf5943
 
 ## 11. Changing this document
 
-Any change to §2 through §6 changes every content address in history. The process is:
+Most changes to §2 through §6 change every content address in history. The process is:
 
 1. An ADR in `docs/adr/` recording what changed, why, what was rejected, and the
    migration path for devices that will not see the change for weeks.
@@ -555,3 +597,11 @@ Any change to §2 through §6 changes every content address in history. The proc
    they are how an N-2 decoder is tested.
 
 There is no path that skips step 1.
+
+**Additive changes skip step 2.** Adding a new optional field with a fresh permanent
+number (§2.3), or a new object type with a fresh domain separation tag (§3.1), leaves
+every existing object byte-identical and every existing id unchanged — so it needs the
+ADR and new golden vectors but **not** a version bump. `acks` (§6.1 field 8) and
+`ForkProof` (§6.7) were added this way for M1; see ADR-0002. Changing the type,
+semantics, presence rule, or number of an *existing* field is not additive and takes all
+three steps.

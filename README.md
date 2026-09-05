@@ -98,7 +98,7 @@ below carries measured numbers. Development stops at that line.
 | 4 | `vigil-sim` — seeded discrete-event simulator over the *real* ledger | not started |
 | 5 | `vigil-node --role edge\|hub\|mule` | not started |
 | 6 | Export pack + `vigil-verify` — the independent verifier | not started |
-| 7 | `spec/02-entanglement.md`, `spec/04-threat-model.md` | not started |
+| 7 | `spec/02-entanglement.md` (written; vectors + code next), `spec/04-threat-model.md` (after M1, by design) | in progress |
 | 8 | Seeded scenarios, each paired with an ablation run | not started |
 | 9 | Measured evaluation table and demo transcript | not started |
 
