@@ -1,0 +1,19 @@
+[package]
+name = "vigil-verify"
+description = "Independent verifier: given only an export pack and the org public key, reproduces every ordering claim in it. Exits nonzero on tampering."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "vigil-verify"
+path = "src/main.rs"
+
+# Deliberately minimal. This binary depends on vigil-core for the canonical
+# encoding and nothing else in the workspace — see the doc comment in
+# src/main.rs for why the absence of vigil-ledger here is the point.
+[dependencies]
+vigil-core.workspace = true
+anyhow.workspace = true
+hex.workspace = true

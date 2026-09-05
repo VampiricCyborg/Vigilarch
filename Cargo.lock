@@ -1371,6 +1371,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vigil-verify"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "hex",
+ "vigil-core",
+]
+
+[[package]]
 name = "vigil-wasm"
 version = "0.0.1"
 dependencies = [

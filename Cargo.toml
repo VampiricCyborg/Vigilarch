@@ -9,6 +9,7 @@ members = [
     "crates/vigil-node",
     "crates/vigil-wasm",
     "crates/vigil-sim",
+    "crates/vigil-verify",
 ]
 
 [workspace.package]
