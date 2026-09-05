@@ -19,11 +19,22 @@ Rules:
 | `01-wire-format.md` | Canonical CBOR, content addressing, object encodings, version negotiation | M0 |
 | `02-entanglement.md` | Checkpoints, attestation exchange, the attestation DAG, sealing, fork proofs | M1 |
 | `03-sync.md` | Merkle range reconciliation, priority classes, resumption, bundle framing | M2 |
-| `04-threat-model.md` | Adversaries, guarantees, explicit non-guarantees | M0 onward |
+| `04-threat-model.md` | Adversaries, guarantees, explicit non-guarantees | after M1 |
 | `05-vocabulary.md` | The controlled tag vocabulary that makes signatures federate | M6 |
 
-All five are unwritten. `01` and `04` come first — they are prerequisites for M0, and
-§16.2 requires golden vectors from day one.
+All five are unwritten. **`01-wire-format.md` comes first**, and the golden vectors in
+`testdata/` are written directly against it, before any ledger code depends on it. The
+vectors are a test of this document as much as of the code: if you cannot hand-compute a
+`fields -> preimage -> id -> signature` triple straight from the text, the text is
+underspecified, and it is far cheaper to find that out now.
+
+`04-threat-model.md` is **not** a prerequisite for M0, despite what its place in the
+numbering suggests. §5.3 of the design document already carries the adversary table, and
+the threat-model-derived decisions that actually constrain the encoding — domain
+separation, never accepting an `id` from the wire, no floats in the preimage — are
+settled and are stated normatively in `01`. The threat model will be a substantially
+better document written after M1, once fork detection and quarantine have surfaced the
+cases the design document glosses over. It should not gate the wire format.
 
 ## A note on `05-vocabulary.md`
 
