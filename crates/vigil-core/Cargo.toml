@@ -16,4 +16,10 @@ thiserror.workspace = true
 hex.workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true
+
+# proptest pulls in wait-timeout, which does not build for wasm32. The golden
+# vector tests must run under WASM (architectural invariant #2), so property
+# testing is gated to native targets rather than the vector check being given up.
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 proptest.workspace = true

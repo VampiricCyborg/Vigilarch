@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  native:
+    name: native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        # clippy.toml bans wall-clock reads; -D warnings makes that ban fatal
+        # rather than advisory. See invariant I4.
+        run: cargo clippy --workspace --all-targets
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Golden vectors are reproducible
+        # The generator is deterministic. If regenerating changes a checked-in
+        # vector, either the generator drifted from spec/01-wire-format.md or a
+        # vector was hand-edited — both are spec changes requiring an ADR, and
+        # neither may pass silently.
+        run: |
+          cargo run -p vigil-core --example gen_vectors
+          git diff --exit-code testdata/vectors/
+
+  wasm:
+    name: wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown, wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasmtime
+        uses: bytecodealliance/actions/wasmtime/setup@v1
+
+      - name: Golden vectors under WASM
+        # The cross-target check architectural invariant #2 exists for. The same
+        # assertions that ran on native run here against the same embedded
+        # vectors; if canonical encoding, BLAKE3 or Ed25519 behaved differently
+        # under WASM, the same observation would have two content addresses and
+        # the ledger would fork silently. That divergence is invisible to a
+        # native-only run, which is why vectors without this check are half an
+        # artifact.
+        #
+        # wasm32-wasip1 is used rather than wasm32-unknown-unknown because it
+        # runs headless under wasmtime with no browser or wasm-bindgen harness.
+        # Both targets share the same codegen backend, so this exercises the
+        # arithmetic and byte-layout behaviour that could diverge. The actual PWA
+        # target is still compile-checked below.
+        env:
+          CARGO_TARGET_WASM32_WASIP1_RUNNER: wasmtime
+        run: cargo test -p vigil-core --target wasm32-wasip1 --test vectors
+
+      - name: PWA target builds
+        # wasm32-unknown-unknown is what vigil-wasm ships to the field app.
+        run: cargo build -p vigil-core --target wasm32-unknown-unknown

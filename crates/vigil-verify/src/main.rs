@@ -60,5 +60,7 @@
 //! run in someone else's CI against a pack we did not produce.
 
 fn main() {
-    println!("vigil-verify: scaffold only — see docs/VIGILARCH.md §14 M8 for the acceptance criterion");
+    println!(
+        "vigil-verify: scaffold only — see docs/VIGILARCH.md §14 M8 for the acceptance criterion"
+    );
 }

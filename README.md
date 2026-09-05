@@ -65,8 +65,14 @@ polish. An offline app with sync and no entanglement is a mediocre clone of prod
 that already exist.
 
 `vigil-sim` is built alongside M1 rather than after it, because M2 is untestable
-without it. Golden vectors and the CI check that compares the native and WASM builds
-byte-for-byte land with the wire format spec, before any ledger code depends on them.
+without it.
+
+**Landed ahead of M0:** `spec/01-wire-format.md` with a worked example reproducible by
+hand, four golden vectors in `testdata/vectors/`, and CI that runs the same assertions on
+the native and WASM builds. That order is deliberate — the vectors are a test of the
+specification as much as of the code, and if a `fields -> preimage -> id -> signature`
+triple cannot be hand-computed from the document, the document is underspecified. Far
+cheaper to learn that now than after `vigil-ledger` depends on it.
 
 ### Not built here
 
