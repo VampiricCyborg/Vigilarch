@@ -1,0 +1,13 @@
+[package]
+name = "vigil-transport"
+description = "L1: the Link trait and its implementations - QUIC, mDNS, BLE bridge, LoRa, sneakernet."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+vigil-core.workspace = true
+tokio.workspace = true
+quinn.workspace = true
+thiserror.workspace = true

@@ -1,0 +1,61 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/vigil-core",
+    "crates/vigil-ledger",
+    "crates/vigil-sync",
+    "crates/vigil-transport",
+    "crates/vigil-insight",
+    "crates/vigil-node",
+    "crates/vigil-wasm",
+    "crates/vigil-sim",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.85"
+license = "UNLICENSED"
+repository = "https://github.com/VampiricCyborg/Vigilarch"
+
+[workspace.dependencies]
+# Internal
+vigil-core = { path = "crates/vigil-core" }
+vigil-ledger = { path = "crates/vigil-ledger" }
+vigil-sync = { path = "crates/vigil-sync" }
+vigil-transport = { path = "crates/vigil-transport" }
+vigil-insight = { path = "crates/vigil-insight" }
+
+# L0 crypto / identity (spec/01-wire-format.md, spec/02-entanglement.md)
+blake3 = "1"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+chacha20poly1305 = "0.10"
+rand_core = "0.6"
+
+# Canonical encoding. NOTE: ciborium is not deterministic by default;
+# vigil-core owns a canonicalising layer over it. See spec/01-wire-format.md.
+ciborium = "0.2"
+serde = { version = "1", features = ["derive"] }
+
+# Storage
+rusqlite = { version = "0.37", features = ["bundled"] }
+
+# Async / transport
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+quinn = "0.11"
+
+# Errors / util
+thiserror = "2"
+anyhow = "1"
+hex = "0.4"
+
+# Dev
+proptest = "1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# vigil-sim runs long adversarial scenarios; unoptimised is unusably slow.
+[profile.dev.package."*"]
+opt-level = 2

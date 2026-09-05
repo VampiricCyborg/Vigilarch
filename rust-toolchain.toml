@@ -1,0 +1,8 @@
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+# wasm32-unknown-unknown is needed from M4 onward for vigil-wasm. Listing it
+# here means every contributor's toolchain can build the PWA core without a
+# separate setup step, and keeps native and WASM byte-compatible per
+# architectural invariant #2.
+targets = ["wasm32-unknown-unknown"]

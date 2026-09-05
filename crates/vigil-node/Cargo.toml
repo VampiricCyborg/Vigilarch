@@ -1,0 +1,20 @@
+[package]
+name = "vigil-node"
+description = "The node binary: --role edge|hub|mule, plus the loopback HTTP API the PWA and console consume."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "vigil-node"
+path = "src/main.rs"
+
+[dependencies]
+vigil-core.workspace = true
+vigil-ledger.workspace = true
+vigil-sync.workspace = true
+vigil-transport.workspace = true
+vigil-insight.workspace = true
+tokio.workspace = true
+anyhow.workspace = true

@@ -1,0 +1,15 @@
+[package]
+name = "vigil-wasm"
+description = "wasm-bindgen wrapper exposing L0-L3 to the field PWA. Byte-identical logic to native (invariant #2)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+vigil-core.workspace = true
+vigil-ledger.workspace = true
+vigil-sync.workspace = true

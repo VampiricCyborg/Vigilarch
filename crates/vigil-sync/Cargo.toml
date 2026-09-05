@@ -1,0 +1,15 @@
+[package]
+name = "vigil-sync"
+description = "L3: Merkle range reconciliation, priority classes, resumable transfer, sneakernet bundles."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+vigil-core.workspace = true
+vigil-ledger.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

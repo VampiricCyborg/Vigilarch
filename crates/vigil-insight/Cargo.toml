@@ -1,0 +1,15 @@
+[package]
+name = "vigil-insight"
+description = "L5: coverage math, silence detection, signature extraction, precursor mining, federated sketches."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+vigil-core.workspace = true
+vigil-ledger.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

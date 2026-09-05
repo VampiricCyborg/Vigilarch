@@ -1,0 +1,15 @@
+[package]
+name = "vigil-ledger"
+description = "L2: append-only store, per-node hash chains, attestation DAG, fork detection, sealing queries."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+vigil-core.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

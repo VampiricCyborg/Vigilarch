@@ -1,0 +1,26 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# WASM / node
+node_modules/
+dist/
+.vite/
+*.wasm
+
+# Local node state — never commit a ledger or a key
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+/blobs/
+*.key
+*.pem
+!testdata/**/*.key
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

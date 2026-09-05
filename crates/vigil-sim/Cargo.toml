@@ -1,0 +1,17 @@
+[package]
+name = "vigil-sim"
+description = "Deterministic discrete-event network simulator and adversarial chaos harness. A deliverable, not a test utility."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "vigil-sim"
+path = "src/main.rs"
+
+[dependencies]
+vigil-core.workspace = true
+vigil-ledger.workspace = true
+vigil-sync.workspace = true
+anyhow.workspace = true

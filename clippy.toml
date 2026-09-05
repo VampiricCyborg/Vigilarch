@@ -1,0 +1,21 @@
+# Vigilarch lint policy.
+#
+# §19 of docs/VIGILARCH.md names "clock adversariality assumed away in code" as a
+# high-severity risk and prescribes banning wall-clock reads in the ledger at
+# lint level. clippy.toml is workspace-scoped rather than per-crate, so the ban
+# is global and exceptions are explicit. That is deliberate: a wall-clock read
+# anywhere near the evidence path should cost someone an annotation and a code
+# review, not slip in silently.
+#
+# Where a crate legitimately needs wall-clock time — HTTP timeouts, log
+# timestamps, TSA anchoring — annotate the specific call site:
+#
+#     #[allow(clippy::disallowed_methods)] // reason: log timestamp, not evidence
+#
+# Never annotate inside vigil-ledger. All time in the evidence path flows
+# through the HLC and, for anything load-bearing, through attestations (§8).
+
+disallowed-methods = [
+    { path = "std::time::SystemTime::now", reason = "a device clock is a settable field and is not evidence; use the HLC, and attestations for ordering claims (docs/VIGILARCH.md §8, §19)" },
+    { path = "chrono::Utc::now", reason = "a device clock is a settable field and is not evidence; use the HLC, and attestations for ordering claims (docs/VIGILARCH.md §8, §19)" },
+]
