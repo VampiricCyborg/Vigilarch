@@ -1,0 +1,12 @@
+# Normalise to LF in the repository for everything textual.
+* text=auto eol=lf
+
+# Golden vectors are byte-compared: CI regenerates them and fails on any diff
+# (see .github/workflows/ci.yml). The generator writes LF, so a checkout that
+# converted these to CRLF would report drift that does not exist and fail the
+# build on Windows only. Disable conversion outright rather than relying on the
+# eol=lf above, because these files are artifacts, not source.
+testdata/vectors/*.json -text
+
+# Same reasoning, for the scenario recordings that land with vigil-sim.
+testdata/scenarios/** -text
