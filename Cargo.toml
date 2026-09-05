@@ -38,7 +38,9 @@ rand_core = "0.6"
 ciborium = "0.2"
 serde = { version = "1", features = ["derive"] }
 
-# Storage
+# Storage. Pulled only when `vigil-ledger/sqlite` is enabled (off by default):
+# `bundled` compiles a C SQLite that will not cross-compile to
+# wasm32-unknown-unknown, and invariant I2 keeps the ledger WASM-compilable.
 rusqlite = { version = "0.37", features = ["bundled"] }
 
 # Async / transport

@@ -6,10 +6,22 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+# The only backend that is always compiled is the in-memory one. `rusqlite`
+# bundles a C SQLite that does not cross-compile to wasm32-unknown-unknown, so
+# pulling it in unconditionally would break invariant I2 — the ledger and its
+# attestation logic must stay WASM-compilable. Native consumers that want
+# durable storage (vigil-node) turn this on explicitly.
+default = []
+sqlite = ["dep:rusqlite"]
+
 [dependencies]
 vigil-core.workspace = true
-rusqlite.workspace = true
 thiserror.workspace = true
+rusqlite = { workspace = true, optional = true }
 
-[dev-dependencies]
+# proptest pulls in wait-timeout, which does not build for wasm32. Gated to
+# native the same way vigil-core gates it, so `cargo test --target wasm32-*`
+# stays possible.
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 proptest.workspace = true

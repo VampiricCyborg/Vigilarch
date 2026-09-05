@@ -31,6 +31,13 @@ jobs:
       - name: Test
         run: cargo test --workspace
 
+      - name: Ledger SQLite backend compiles
+        # The `sqlite` backend is off by default — it bundles a C SQLite that
+        # will not cross-compile to wasm32, and invariant I2 keeps the ledger
+        # WASM-compilable. Nothing else in CI exercises the feature-gated path,
+        # so guard it here against bit-rot.
+        run: cargo build -p vigil-ledger --features sqlite
+
       - name: Golden vectors are reproducible
         # The generator is deterministic. If regenerating changes a checked-in
         # vector, either the generator drifted from spec/01-wire-format.md or a
@@ -71,6 +78,12 @@ jobs:
           CARGO_TARGET_WASM32_WASIP1_RUNNER: wasmtime
         run: cargo test -p vigil-core --target wasm32-wasip1 --test vectors
 
-      - name: PWA target builds
+      - name: PWA-target crates build
         # wasm32-unknown-unknown is what vigil-wasm ships to the field app.
-        run: cargo build -p vigil-core --target wasm32-unknown-unknown
+        # vigil-ledger is built here because invariant I2 requires the ledger
+        # and its attestation logic to stay WASM-compilable — which is why
+        # rusqlite sits behind the off-by-default `sqlite` feature and the
+        # pure-Rust MemoryStore is always available.
+        run: |
+          cargo build -p vigil-core --target wasm32-unknown-unknown
+          cargo build -p vigil-ledger --target wasm32-unknown-unknown

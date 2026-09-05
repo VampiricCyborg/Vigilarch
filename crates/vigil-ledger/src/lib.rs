@@ -13,6 +13,21 @@
 //! the attestation it received into its own next entry. Proof of time becomes
 //! a property of a meeting rather than a property of a clock.
 //!
+//! ## Storage lives behind a trait (invariant I2)
+//!
+//! Nothing in this crate — not chain traversal, not DAG construction, not
+//! bracketing or fork detection — is written against a database. It is written
+//! against the [`Store`] trait. [`MemoryStore`] is pure Rust, always compiled,
+//! and is what every test and every `vigil-sim` run uses; the `sqlite` feature
+//! (off by default) adds a `rusqlite` backend for `vigil-node`. `rusqlite`
+//! bundles a C SQLite that will not cross-compile to `wasm32-unknown-unknown`,
+//! so it cannot be an unconditional dependency without making I2 unbuildable.
+//!
+//! A `Store` is persistence, not policy: it records what it is handed and hands
+//! it back. Signature checks, the `seq`/`prev` chain rule
+//! (`spec/01-wire-format.md` §6.6), fork detection and quarantine all live
+//! above this line. See the [`store`] module docs.
+//!
 //! ## Rules this crate must never break
 //!
 //! - Objects here are immutable (invariant #3). Interpretation is L4's job.
@@ -27,3 +42,9 @@
 //!   record of the dispute is itself evidence (§8.5).
 
 #![forbid(unsafe_code)]
+
+pub mod memory;
+pub mod store;
+
+pub use memory::MemoryStore;
+pub use store::{ChainHead, Store, StoreError, StoredAttestation, StoredObservation};
