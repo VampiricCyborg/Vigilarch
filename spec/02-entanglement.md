@@ -175,9 +175,17 @@ the head". There are exactly three edge types:
   when both are held and n's `prev` recomputes to n−1's id.
 - **ack** — attestation X → observation E, when `X.id ∈ E.acks`, X is held and valid,
   `X.subject == E.author`, and `X.subject_seq < E.seq`.
-- **seal** — observation S@m → attestation X, for every held observation of `S` at
-  `seq` m ≤ `X.subject_seq`, **when** the held observation at `X.subject_seq` recomputes
-  to `X.subject_head` and `X.witness ≠ S`.
+- **seal** — observation S@m → attestation X, for every held observation of `S` that is
+  a **chain ancestor** of `X.subject_head` (reachable by walking `prev` from the anchored
+  entry), **when** the held observation at `X.subject_seq` recomputes to `X.subject_head`
+  and `X.witness ≠ S`.
+
+  The anchoring check — `X.subject_head` recomputes from the held entry — is what makes
+  the seal cryptographically sound. Walking `prev` from that entry, rather than comparing
+  seq numbers, is what confines the seal to the chain the witness actually saw. Under
+  equivocation the two rules differ: a fork-branch sibling at the same `seq` is **not** a
+  chain ancestor of the anchored head and receives **no seal edge** from this attestation.
+  On any unforked chain the sets coincide. See ADR-0003 Part 1 for the golden case.
 
 The partial order ⟶ is the transitive closure of these edges.
 
@@ -205,10 +213,21 @@ attestation as sealing anything.
 ### 4.6 Mules
 
 A mule is a node that entangles at both ends of a route and carries opaque bundles it
-cannot read. It contributes ack and seal edges exactly like any other node. A path
-`Site A ⟶ mule ⟶ Site B` through the mule's own chain is what gives two never-connected
-sites an ordering relationship. The mule needs no access to any payload to produce this;
-an untrusted courier measurably tightens the ledger.
+cannot read. It contributes ack and seal edges exactly like any other node.
+
+**Current limitation (ADR-0003 Part 2).** An `Attestation` carries the subject's head
+but nothing about the witness's own chain position. The three edge types in §4.2 therefore
+produce no edge between two different authors' chains. A mule that attests Site A and
+also attests Site B issues two attestations, but nothing in the current wire format
+records the order in which it issued them, so no DAG edge connects them. The path
+`Site A ⟶ mule ⟶ Site B` does not exist in the current graph.
+
+The fix — a `witness_seq` counter on `Attestation` and a witness-order edge type — is
+specified in ADR-0003 and requires a wire-format change under `spec/01` §11. Until it
+lands, the mule-relay scenario is out of scope and two sites connected only through a
+mule produce `incomparable` records. That is the honest, conservative output (I5), not a
+correctness defect. An untrusted courier still tightens each site's own brackets
+independently; it does not yet give the two sites an ordering relationship between them.
 
 ### 4.7 Determinism
 
