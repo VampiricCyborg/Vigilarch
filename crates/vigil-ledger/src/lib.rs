@@ -43,8 +43,13 @@
 
 #![forbid(unsafe_code)]
 
+pub mod chain;
 pub mod memory;
 pub mod store;
 
+pub use chain::{
+    AppendError, ChainMismatch, ChainVerification, ChainViolation, PrevRequirement, append,
+    verify_all, verify_chain,
+};
 pub use memory::MemoryStore;
 pub use store::{ChainHead, Store, StoreError, StoredAttestation, StoredObservation};
