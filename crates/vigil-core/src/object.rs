@@ -5,11 +5,14 @@
 //! (§2.4). Reordering anything here must not change a single byte of output; the
 //! golden vectors in `testdata/vectors/` are what enforce that.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::cbor::{MapReader, MapWriter, Reader, write_bytes, write_int, write_text, write_uint};
-use crate::error::DecodeError;
-use crate::types::{GeoPoint, Hash, Hlc, OpaqueId, PubKey, Reading, Seq, SiteId};
+use crate::cbor::{
+    MapReader, MapWriter, Reader, write_array_head, write_bytes, write_int, write_text, write_uint,
+};
+use crate::error::{DecodeError, ForkProofInvalid};
+use crate::sign::verify_id;
+use crate::types::{GeoPoint, Hash, Hlc, OpaqueId, PubKey, Reading, Seq, SiteId, Signature};
 
 /// Domain separation: `tag || 0x00 || body` (§3.1).
 ///
@@ -153,6 +156,23 @@ pub struct Observation {
     pub hlc: Hlc,
     pub body: ObservationBody,
     pub geo: Option<GeoPoint>,
+    /// Attestation ids this entry commits to (`spec/01-wire-format.md` §6.1
+    /// field 8, `spec/02-entanglement.md` §3.4). Field 8, omitted entirely when
+    /// empty; when present it MUST be non-empty.
+    ///
+    /// A `BTreeSet` rather than a `Vec` for the reason [`Checkpoint::frontier`]
+    /// is a `BTreeMap`: "ascending, duplicate-free" is then a property of the
+    /// type, not a convention a caller must honour. A vector would let two
+    /// values that are unequal in Rust encode to identical bytes — same content
+    /// address, same object as far as the ledger is concerned — and any code
+    /// comparing observations structurally would disagree with the ledger about
+    /// what is the same object.
+    ///
+    /// Iteration order is the canonical wire order for free: every element is a
+    /// 32-byte `Hash`, so all encoded elements share the `0x5820` prefix and
+    /// bytewise order over encoded elements coincides with `Ord` over the raw
+    /// bytes (§2.1 rule 2 is satisfied by the shortest-form length head).
+    pub acks: BTreeSet<Hash>,
 }
 
 /// Body variants. **The discriminants come from the §6.1 table**, not from
@@ -372,11 +392,22 @@ impl Object for Observation {
         m.field(5, |o| write_hlc(&self.hlc, o));
         m.field(6, |o| self.body.encode(o));
         m.optional(7, &self.geo, write_geo);
+        // Field 8, `acks`: omitted when empty (§2.3), never encoded as an empty
+        // array. The `BTreeSet` iterates ascending, which is the canonical order.
+        if !self.acks.is_empty() {
+            m.field(8, |o| {
+                write_array_head(self.acks.len() as u64, o);
+                for id in &self.acks {
+                    write_bytes(id.as_bytes(), o);
+                }
+            });
+        }
     }
 
     fn decode_fields(r: &mut Reader, m: &mut MapReader) -> Result<Self, DecodeError> {
         let (mut author, mut site, mut prev, mut seq, mut hlc, mut body, mut geo) =
             (None, None, None, None, None, None, None);
+        let mut acks: Option<BTreeSet<Hash>> = None;
         while let Some(key) = m.next_uint_key(r)? {
             match key {
                 1 => author = Some(PubKey(r.fixed_bytes("author PubKey")?)),
@@ -399,6 +430,7 @@ impl Object for Observation {
                 5 => hlc = Some(read_hlc(r)?),
                 6 => body = Some(ObservationBody::decode(r)?),
                 7 => geo = Some(read_geo(r)?),
+                8 => acks = Some(read_acks(r)?),
                 k => return Err(DecodeError::UnknownField(k)),
             }
         }
@@ -410,8 +442,41 @@ impl Object for Observation {
             hlc: hlc.map_or_else(|| missing(5), Ok)?,
             body: body.map_or_else(|| missing(6), Ok)?,
             geo,
+            acks: acks.unwrap_or_default(),
         })
     }
+}
+
+/// Reads field 8, `acks`: a CBOR array of 32-byte hashes, strictly ascending and
+/// non-empty (`spec/01-wire-format.md` §6.1, `spec/02-entanglement.md` §3.4).
+///
+/// An empty array is a rejection, not an empty set: §2.3 forbids a present field
+/// that means the same as an absent one. Non-ascending or duplicate elements are
+/// a rejection for the same reason canonical map keys must be sorted — a second
+/// spelling of the same set is a second content address for the same object.
+fn read_acks(r: &mut Reader) -> Result<BTreeSet<Hash>, DecodeError> {
+    let n = r.array_head()?;
+    // Each element is 34 bytes on the wire; bound before allocating (§8).
+    if n > r.remaining() as u64 {
+        return Err(DecodeError::LengthExceedsInput {
+            declared: n,
+            remaining: r.remaining(),
+        });
+    }
+    if n == 0 {
+        return Err(DecodeError::EmptyField(8));
+    }
+    let mut acks = BTreeSet::new();
+    let mut last: Option<Hash> = None;
+    for _ in 0..n {
+        let id = Hash(r.fixed_bytes("acks attestation id")?);
+        if last.is_some_and(|prev| id <= prev) {
+            return Err(DecodeError::NotAscending { what: "acks" });
+        }
+        last = Some(id);
+        acks.insert(id);
+    }
+    Ok(acks)
 }
 
 // ---------------------------------------------------------------------------
@@ -612,6 +677,172 @@ impl Object for BlobManifest {
             size: size.map_or_else(|| missing(1), Ok)?,
             chunks: chunks.map_or_else(|| missing(2), Ok)?,
             mime: mime.map_or_else(|| missing(3), Ok)?,
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Fork proof (§6.7)
+// ---------------------------------------------------------------------------
+
+/// One side of a [`ForkProof`]: a conflicting chain entry carried as its full
+/// domain-separated preimage plus its detached signature (`spec/01` §6.7).
+///
+/// The preimage is `"vigilarch/1/observation" || 0x00 || canonical_cbor` (§3.1),
+/// so a node holding neither entry can still decode and verify it.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct ForkEntry {
+    pub preimage: Vec<u8>,
+    pub sig: Signature,
+}
+
+/// Cryptographic proof that one key signed two irreconcilable histories
+/// (`spec/01` §6.7, `spec/02` §6).
+///
+/// Self-contained: it carries both conflicting entries in full, so it floods to
+/// nodes that hold neither. Ordered so the entry with the lexicographically
+/// smaller recomputed id is `a`, which makes the proof's own content address
+/// independent of which node built it. Build one with [`ForkProof::build`] and
+/// validate a received one with [`ForkProof::check`].
+///
+/// It proves the key equivocated. It does **not** say which branch came first,
+/// when either was written, or that any observation in either branch is false
+/// (`spec/02` §6.6).
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct ForkProof {
+    pub key: PubKey,
+    pub a: ForkEntry,
+    pub b: ForkEntry,
+}
+
+/// How two entries by one key collide (`spec/01` §6.7 / §6.1).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Collision {
+    /// Same `seq`, different ids.
+    SameSeq(Seq),
+    /// Same `prev`, different ids.
+    SamePrev(Option<Hash>),
+}
+
+/// The decoded, fully validated content of a [`ForkProof`], returned by
+/// [`ForkProof::check`]. Its existence is the guarantee that every §6.7 check
+/// passed.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct CheckedFork {
+    pub key: PubKey,
+    pub a: Observation,
+    pub b: Observation,
+    pub collision: Collision,
+}
+
+impl ForkProof {
+    /// Build a proof from two conflicting entries by `key` and their signatures,
+    /// ordering `a`/`b` by recomputed id (`spec/01` §6.7).
+    ///
+    /// The caller is responsible for the entries actually conflicting; a proof
+    /// built from two unrelated entries fails [`check`](Self::check).
+    #[must_use]
+    pub fn build(
+        key: PubKey,
+        e1: &Observation,
+        s1: &Signature,
+        e2: &Observation,
+        s2: &Signature,
+    ) -> Self {
+        let f1 = ForkEntry {
+            preimage: e1.preimage(),
+            sig: *s1,
+        };
+        let f2 = ForkEntry {
+            preimage: e2.preimage(),
+            sig: *s2,
+        };
+        if e1.id() <= e2.id() {
+            Self { key, a: f1, b: f2 }
+        } else {
+            Self { key, a: f2, b: f1 }
+        }
+    }
+
+    /// Validate a received proof with no external input (`spec/01` §6.7,
+    /// `spec/02` §6.2).
+    ///
+    /// Checks that both preimages decode as `Observation`s, both carry
+    /// `author == key`, both signatures verify under `key`, the two entries are
+    /// distinct and actually collide, and `a`/`b` are in recomputed-id order. A
+    /// proof failing any check is not evidence.
+    ///
+    /// # Errors
+    ///
+    /// [`ForkProofInvalid`] naming the first check that failed.
+    pub fn check(&self) -> Result<CheckedFork, ForkProofInvalid> {
+        let a = Observation::decode_preimage(&self.a.preimage)
+            .map_err(|_| ForkProofInvalid::PreimageDecode)?;
+        let b = Observation::decode_preimage(&self.b.preimage)
+            .map_err(|_| ForkProofInvalid::PreimageDecode)?;
+        if a.author != self.key || b.author != self.key {
+            return Err(ForkProofInvalid::WrongAuthor);
+        }
+        let (id_a, id_b) = (a.id(), b.id());
+        verify_id(self.key, id_a, &self.a.sig).map_err(|_| ForkProofInvalid::BadSignature)?;
+        verify_id(self.key, id_b, &self.b.sig).map_err(|_| ForkProofInvalid::BadSignature)?;
+        if id_a == id_b {
+            return Err(ForkProofInvalid::SameEntry);
+        }
+        if id_a > id_b {
+            return Err(ForkProofInvalid::Misordered);
+        }
+        let collision = if a.seq == b.seq {
+            Collision::SameSeq(a.seq)
+        } else if a.prev == b.prev {
+            Collision::SamePrev(a.prev)
+        } else {
+            return Err(ForkProofInvalid::NoCollision);
+        };
+        Ok(CheckedFork {
+            key: self.key,
+            a,
+            b,
+            collision,
+        })
+    }
+}
+
+fn read_fork_entry(r: &mut Reader) -> Result<ForkEntry, DecodeError> {
+    r.expect_array(2)?;
+    let preimage = r.bytes()?.to_vec();
+    let sig = Signature(r.fixed_bytes::<64>("fork entry signature")?);
+    Ok(ForkEntry { preimage, sig })
+}
+
+impl Object for ForkProof {
+    const TAG: &'static str = "vigilarch/1/forkproof";
+
+    fn encode_fields(&self, m: &mut MapWriter) {
+        m.field(1, |o| write_bytes(self.key.as_bytes(), o));
+        for (num, entry) in [(2, &self.a), (3, &self.b)] {
+            m.field(num, |o| {
+                write_array_head(2, o);
+                write_bytes(&entry.preimage, o);
+                write_bytes(entry.sig.as_bytes(), o);
+            });
+        }
+    }
+
+    fn decode_fields(r: &mut Reader, m: &mut MapReader) -> Result<Self, DecodeError> {
+        let (mut key, mut a, mut b) = (None, None, None);
+        while let Some(k) = m.next_uint_key(r)? {
+            match k {
+                1 => key = Some(PubKey(r.fixed_bytes("forkproof key PubKey")?)),
+                2 => a = Some(read_fork_entry(r)?),
+                3 => b = Some(read_fork_entry(r)?),
+                other => return Err(DecodeError::UnknownField(other)),
+            }
+        }
+        Ok(Self {
+            key: key.map_or_else(|| missing(1), Ok)?,
+            a: a.map_or_else(|| missing(2), Ok)?,
+            b: b.map_or_else(|| missing(3), Ok)?,
         })
     }
 }

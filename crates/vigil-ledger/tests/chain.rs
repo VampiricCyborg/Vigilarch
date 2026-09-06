@@ -36,6 +36,7 @@ fn linked(a: PubKey, seq: Seq, prev: Option<Hash>, text: &str) -> Observation {
             text: text.to_owned(),
         },
         geo: None,
+        acks: std::collections::BTreeSet::new(),
     }
 }
 

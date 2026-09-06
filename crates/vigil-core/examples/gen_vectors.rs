@@ -337,4 +337,150 @@ fn main() {
         seed: seed_a(),
     }
     .write(&dir);
+
+    // --- observation/note-with-acks ----------------------------------------------
+    // Field 8, `acks` (spec/01 §6.1, spec/02 §3.4): the M1 addition. A non-genesis
+    // note that commits to two attestation ids. The ids are encoded as a CBOR array
+    // of 32-byte byte strings in strictly ascending order — the same ordering rule
+    // as canonical map keys, and the one an encoder that preserved insertion order
+    // would get wrong. `geo` (field 7) is absent, so field 8 follows field 6.
+    let acks_prev = blake3::hash(b"vigilarch acks vector prev");
+    let mut ack_ids = [
+        *blake3::hash(b"vigilarch acks vector attestation alpha").as_bytes(),
+        *blake3::hash(b"vigilarch acks vector attestation beta").as_bytes(),
+    ];
+    ack_ids.sort();
+    let acks_text = "crane tag-out re-checked against the witnessed head";
+    let mut c = Vec::new();
+    map(7, &mut c);
+    uint(1, &mut c);
+    bstr(&key_a, &mut c);
+    uint(2, &mut c);
+    bstr(&site, &mut c);
+    uint(3, &mut c);
+    bstr(acks_prev.as_bytes(), &mut c);
+    uint(4, &mut c);
+    uint(1, &mut c);
+    uint(5, &mut c);
+    array(2, &mut c);
+    uint(1_700_000_050_000, &mut c);
+    uint(0, &mut c);
+    uint(6, &mut c);
+    array(2, &mut c);
+    uint(0, &mut c); // variant 0 = Note
+    map(1, &mut c);
+    uint(1, &mut c);
+    tstr(acks_text, &mut c);
+    uint(8, &mut c);
+    array(2, &mut c);
+    bstr(&ack_ids[0], &mut c);
+    bstr(&ack_ids[1], &mut c);
+
+    Vector {
+        name: "observation/note-with-acks",
+        tag: "vigilarch/1/observation",
+        fields: vec![
+            ("author", hex::encode(key_a)),
+            ("site", "VIGILARCH-SITE-A".into()),
+            ("prev", hex::encode(acks_prev.as_bytes())),
+            ("seq", "1".into()),
+            ("hlc", "[1700000050000, 0]".into()),
+            ("body", format!("variant 0 Note, text: {acks_text}")),
+            ("geo", "(absent - omitted)".into()),
+            (
+                "acks",
+                format!(
+                    "[{}, {}] ascending",
+                    &hex::encode(ack_ids[0])[..8],
+                    &hex::encode(ack_ids[1])[..8]
+                ),
+            ),
+        ],
+        cbor: c,
+        seed: seed_a(),
+    }
+    .write(&dir);
+
+    // --- forkproof/basic -------------------------------------------------------
+    // spec/01 §6.7 / spec/02 §6. `seed_a` equivocates at genesis: two seq-0 notes,
+    // both with an empty `prev`, different text, hence different ids. The proof
+    // carries each entry's full domain-separated Observation preimage and detached
+    // signature, and orders them so the lexicographically smaller recomputed id is
+    // `a` — which is what makes two independently built proofs of one fork share a
+    // content address. The `sig_hex` on the vector itself is over the ForkProof id
+    // and is included only for format uniformity: a ForkProof is not a signed
+    // object, it is self-verifying from the two signatures it carries.
+    let sk_a = SigningKey::from_bytes(&seed_a());
+    let fork_a = genesis_note_preimage(&key_a, &site, "north stair handrail is loose");
+    let fork_b = genesis_note_preimage(&key_a, &site, "north stair handrail removed for grinding");
+    let id_a = blake3::hash(&fork_a);
+    let id_b = blake3::hash(&fork_b);
+    let sig_a = sk_a
+        .sign(&domain_sep("vigilarch/1/sig", id_a.as_bytes()))
+        .to_bytes();
+    let sig_b = sk_a
+        .sign(&domain_sep("vigilarch/1/sig", id_b.as_bytes()))
+        .to_bytes();
+    let (first, second) = if id_a.as_bytes() <= id_b.as_bytes() {
+        ((&fork_a, &sig_a), (&fork_b, &sig_b))
+    } else {
+        ((&fork_b, &sig_b), (&fork_a, &sig_a))
+    };
+    let mut c = Vec::new();
+    map(3, &mut c);
+    uint(1, &mut c);
+    bstr(&key_a, &mut c);
+    uint(2, &mut c);
+    array(2, &mut c);
+    bstr(first.0, &mut c);
+    bstr(first.1, &mut c);
+    uint(3, &mut c);
+    array(2, &mut c);
+    bstr(second.0, &mut c);
+    bstr(second.1, &mut c);
+
+    Vector {
+        name: "forkproof/basic",
+        tag: "vigilarch/1/forkproof",
+        fields: vec![
+            ("key", hex::encode(key_a)),
+            (
+                "collision",
+                "same seq 0, different ids (genesis equivocation)".into(),
+            ),
+            ("a_id", hex::encode(blake3::hash(first.0).as_bytes())),
+            ("b_id", hex::encode(blake3::hash(second.0).as_bytes())),
+        ],
+        cbor: c,
+        seed: seed_a(),
+    }
+    .write(&dir);
+}
+
+/// The full domain-separated preimage of a genesis `Note` observation, built by
+/// hand from the spec/01 §6.1 table — the two conflicting entries a `forkproof`
+/// vector carries. `prev` is the zero-length byte string; `seq` is 0; `geo` and
+/// `acks` are absent.
+fn genesis_note_preimage(key: &[u8; 32], site: &[u8; 16], text: &str) -> Vec<u8> {
+    let mut c = Vec::new();
+    map(6, &mut c);
+    uint(1, &mut c);
+    bstr(key, &mut c);
+    uint(2, &mut c);
+    bstr(site, &mut c);
+    uint(3, &mut c);
+    bstr(&[], &mut c);
+    uint(4, &mut c);
+    uint(0, &mut c);
+    uint(5, &mut c);
+    array(2, &mut c);
+    uint(1_700_000_000_000, &mut c);
+    uint(0, &mut c);
+    uint(6, &mut c);
+    array(2, &mut c);
+    uint(0, &mut c);
+    map(1, &mut c);
+    uint(1, &mut c);
+    tstr(text, &mut c);
+    domain_sep("vigilarch/1/observation", &c)
 }

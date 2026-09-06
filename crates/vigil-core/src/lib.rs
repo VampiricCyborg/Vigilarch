@@ -26,10 +26,10 @@ pub mod object;
 pub mod sign;
 pub mod types;
 
-pub use error::{DecodeError, SignatureError};
+pub use error::{DecodeError, ForkProofInvalid, SignatureError};
 pub use object::{
-    Attestation, BlobManifest, Checkpoint, Object, Observation, ObservationBody, PresenceEvent,
-    SIG_TAG, domain_sep,
+    Attestation, BlobManifest, Checkpoint, CheckedFork, Collision, ForkEntry, ForkProof, Object,
+    Observation, ObservationBody, PresenceEvent, SIG_TAG, domain_sep,
 };
 pub use sign::{SignedObject, public_key, sign_id, signing_message, verify_id};
 pub use types::{GeoPoint, Hash, Hlc, OpaqueId, PubKey, Reading, Seq, Signature, SiteId};

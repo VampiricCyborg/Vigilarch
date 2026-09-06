@@ -110,6 +110,7 @@ mod tests {
                 text: text.to_owned(),
             },
             geo: None,
+            acks: std::collections::BTreeSet::new(),
         }
     }
 

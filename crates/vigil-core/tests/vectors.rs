@@ -23,11 +23,11 @@
 //! native and WASM means the same observation has two content addresses, which
 //! means a silent fork — and it is invisible to a native-only test run.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use ed25519_dalek::{Signature, SigningKey, Verifier, VerifyingKey};
 use vigil_core::{
-    Attestation, BlobManifest, Checkpoint, GeoPoint, Hash, Hlc, Object, Observation,
+    Attestation, BlobManifest, Checkpoint, ForkProof, GeoPoint, Hash, Hlc, Object, Observation,
     ObservationBody, PubKey, SignedObject, SiteId,
 };
 
@@ -41,12 +41,20 @@ const VECTORS: &[(&str, &str)] = &[
         include_str!("../../../testdata/vectors/observation-media-with-geo.json"),
     ),
     (
+        "observation/note-with-acks",
+        include_str!("../../../testdata/vectors/observation-note-with-acks.json"),
+    ),
+    (
         "attestation/basic",
         include_str!("../../../testdata/vectors/attestation-basic.json"),
     ),
     (
         "checkpoint/with-frontier",
         include_str!("../../../testdata/vectors/checkpoint-with-frontier.json"),
+    ),
+    (
+        "forkproof/basic",
+        include_str!("../../../testdata/vectors/forkproof-basic.json"),
     ),
 ];
 
@@ -254,6 +262,7 @@ fn note_genesis() -> Observation {
             text: "shoring on grid B4 is out of plumb".to_owned(),
         },
         geo: None,
+        acks: BTreeSet::new(),
     }
 }
 
@@ -274,7 +283,54 @@ fn media_with_geo() -> Observation {
             lon_udeg: 151_209_290,
             acc_mm: 4_500,
         }),
+        acks: BTreeSet::new(),
     }
+}
+
+fn note_with_acks() -> Observation {
+    // The two attestation ids the generator commits to, sorted ascending — the
+    // `BTreeSet` makes the ordering the type's job, not the caller's.
+    let ack_ids = BTreeSet::from([
+        hash_of(b"vigilarch acks vector attestation alpha"),
+        hash_of(b"vigilarch acks vector attestation beta"),
+    ]);
+    Observation {
+        author: key(seed_a()),
+        site: SITE,
+        prev: Some(hash_of(b"vigilarch acks vector prev")),
+        seq: 1,
+        hlc: Hlc::new(1_700_000_050_000, 0),
+        body: ObservationBody::Note {
+            text: "crane tag-out re-checked against the witnessed head".to_owned(),
+        },
+        geo: None,
+        acks: ack_ids,
+    }
+}
+
+/// The two conflicting genesis notes the `forkproof/basic` vector carries, and
+/// the proof built from them. Rebuilt here from the same inputs the generator
+/// used, so the check below is the encoder agreeing with the hand-built vector
+/// rather than with itself.
+fn forkproof_basic() -> ForkProof {
+    let mk = |text: &str| Observation {
+        author: key(seed_a()),
+        site: SITE,
+        prev: None,
+        seq: 0,
+        hlc: Hlc::new(1_700_000_000_000, 0),
+        body: ObservationBody::Note {
+            text: text.to_owned(),
+        },
+        geo: None,
+        acks: BTreeSet::new(),
+    };
+    let sk = SigningKey::from_bytes(&seed_a());
+    let loose = mk("north stair handrail is loose");
+    let grinding = mk("north stair handrail removed for grinding");
+    let s_loose = vigil_core::sign_id(&sk, loose.id());
+    let s_grinding = vigil_core::sign_id(&sk, grinding.id());
+    ForkProof::build(key(seed_a()), &loose, &s_loose, &grinding, &s_grinding)
 }
 
 fn attestation_basic() -> Attestation {
@@ -306,6 +362,7 @@ fn checkpoint_with_frontier() -> Checkpoint {
 fn encoder_reproduces_the_observation_vectors() {
     check("observation/note-genesis", &note_genesis());
     check("observation/media-with-geo", &media_with_geo());
+    check("observation/note-with-acks", &note_with_acks());
 }
 
 #[test]
@@ -316,6 +373,41 @@ fn encoder_reproduces_the_attestation_vector() {
 #[test]
 fn encoder_reproduces_the_checkpoint_vector() {
     check("checkpoint/with-frontier", &checkpoint_with_frontier());
+}
+
+#[test]
+fn encoder_reproduces_the_forkproof_vector() {
+    check("forkproof/basic", &forkproof_basic());
+}
+
+/// A `ForkProof` is self-verifying (`spec/01` §6.7): the vector's proof passes
+/// `check()`, and a one-byte change to either carried preimage fails it. This is
+/// the property that lets a node act on a fork it did not itself detect.
+#[test]
+fn the_forkproof_vector_self_verifies_and_rejects_tampering() {
+    let proof = forkproof_basic();
+    let checked = proof.check().expect("the vector's proof is valid");
+    assert_eq!(checked.key, key(seed_a()), "names the equivocating key");
+    assert_eq!(
+        checked.collision,
+        vigil_core::Collision::SameSeq(0),
+        "genesis equivocation collides at seq 0"
+    );
+
+    for field in ["a", "b"] {
+        let mut tampered = proof.clone();
+        let entry = if field == "a" {
+            &mut tampered.a
+        } else {
+            &mut tampered.b
+        };
+        let last = entry.preimage.len() - 1;
+        entry.preimage[last] ^= 0x01;
+        assert!(
+            tampered.check().is_err(),
+            "a mutated {field} preimage must not pass check()"
+        );
+    }
 }
 
 /// §10 — the worked example reproduced exactly, including the byte counts the
@@ -350,12 +442,21 @@ fn the_worked_example_in_the_spec_holds() {
 /// is the implementation agreeing with it rather than with itself.
 #[test]
 fn signing_path_reproduces_every_vector_signature() {
-    let cases: [(&str, [u8; 32], Hash); 4] = [
+    // `forkproof/basic` is excluded: a `ForkProof` is not a signed object, so
+    // there is no signing path for the encoder to reproduce. Its `sig_hex` is
+    // over the proof id purely for vector-format uniformity and is exercised by
+    // `signature_verifies_over_domain_separated_id`, which covers every vector.
+    let cases: [(&str, [u8; 32], Hash); 5] = [
         ("observation/note-genesis", seed_a(), note_genesis().id()),
         (
             "observation/media-with-geo",
             seed_a(),
             media_with_geo().id(),
+        ),
+        (
+            "observation/note-with-acks",
+            seed_a(),
+            note_with_acks().id(),
         ),
         // Signed by the witness, per §6.5 — not by the subject.
         ("attestation/basic", seed_b(), attestation_basic().id()),
@@ -393,8 +494,10 @@ fn round_trips_through_the_decoder() {
     }
     round_trip::<Observation>("observation/note-genesis");
     round_trip::<Observation>("observation/media-with-geo");
+    round_trip::<Observation>("observation/note-with-acks");
     round_trip::<Attestation>("attestation/basic");
     round_trip::<Checkpoint>("checkpoint/with-frontier");
+    round_trip::<ForkProof>("forkproof/basic");
 }
 
 /// §8 — rejection is total. Checked by mutating real vector bytes, so each input

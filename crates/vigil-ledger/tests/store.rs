@@ -35,6 +35,7 @@ fn note(author_key: PubKey, seq: Seq, text: &str) -> Observation {
             text: text.to_owned(),
         },
         geo: None,
+        acks: std::collections::BTreeSet::new(),
     }
 }
 

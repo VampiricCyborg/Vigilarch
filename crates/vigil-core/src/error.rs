@@ -33,6 +33,12 @@ pub enum DecodeError {
     #[error("map keys out of order or duplicated (§2.1 rule 3)")]
     MapKeyOrder,
 
+    #[error("elements of {what} are not in strictly ascending order (a second spelling of one set)")]
+    NotAscending { what: &'static str },
+
+    #[error("optional field {0} is present but empty (§2.3) — absent and empty must not differ")]
+    EmptyField(u64),
+
     #[error("floating point value (§2.2) — use a scaled integer")]
     FloatingPoint,
 
@@ -99,3 +105,25 @@ pub enum DecodeError {
 #[derive(Debug, Error, PartialEq, Eq, Clone, Copy)]
 #[error("signature verification failed")]
 pub struct SignatureError;
+
+/// Why a [`ForkProof`](crate::ForkProof) is not evidence.
+///
+/// A `ForkProof` is self-verifying (`spec/01-wire-format.md` §6.7): a received
+/// one that fails any check is discarded like any malformed frame. The variant
+/// names the first check that failed, for a field report — not so a caller can
+/// choose which failures to tolerate.
+#[derive(Debug, Error, PartialEq, Eq, Clone, Copy)]
+pub enum ForkProofInvalid {
+    #[error("a carried preimage does not decode as an Observation")]
+    PreimageDecode,
+    #[error("a carried entry's author is not the equivocating key")]
+    WrongAuthor,
+    #[error("a carried entry's signature does not verify under the key")]
+    BadSignature,
+    #[error("the two entries are the same object — not a fork")]
+    SameEntry,
+    #[error("the entries are not ordered by recomputed id (smaller must be `a`)")]
+    Misordered,
+    #[error("the two entries do not collide — same seq or same prev is required")]
+    NoCollision,
+}
