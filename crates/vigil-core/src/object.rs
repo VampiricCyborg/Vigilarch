@@ -144,7 +144,8 @@ fn missing<T>(field: u64) -> Result<T, DecodeError> {
 ///
 /// Never edited — invariant I3 puts capture on the immutable side of the line and
 /// interpretation on the mutable side. Correcting an observation means writing a
-/// new one and, at M3-lite, an `Assertion` that retracts the old.
+/// new one and, if an interpretation layer is ever built, an `Assertion` that retracts
+/// the old.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Observation {
     pub author: PubKey,
