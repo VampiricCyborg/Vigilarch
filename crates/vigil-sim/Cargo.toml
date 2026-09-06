@@ -11,7 +11,10 @@ name = "vigil-sim"
 path = "src/main.rs"
 
 [dependencies]
+# Known defect #4: vigil-sim depends only on core, ledger, and the harness —
+# not vigil-sync (M2, out of scope). Objects move between nodes over scripted
+# links here; that is enough to prove every temporal claim.
 vigil-core.workspace = true
 vigil-ledger.workspace = true
-vigil-sync.workspace = true
+ed25519-dalek.workspace = true
 anyhow.workspace = true

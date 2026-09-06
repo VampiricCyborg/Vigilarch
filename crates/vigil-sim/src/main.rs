@@ -1,24 +1,70 @@
 //! # vigil-sim
 //!
-//! A seeded, fully reproducible discrete-event simulator that runs N virtual
-//! nodes on the *real* ledger and sync code over a scriptable virtual network.
+//! A seeded, fully reproducible simulator that runs virtual nodes on the *real*
+//! `vigil-ledger` over a scripted link. See `docs/VIGILARCH.md` §16.1.
 //!
-//! Milestone: built **alongside M1**, not after. See `docs/VIGILARCH.md` §16.1.
+//! This is the smallest real version: two nodes, one attestation exchange, and a
+//! check that `vigil-ledger`'s bracketing query seals the right record from the
+//! far node's point of view. It grew alongside M1, not after it. The scriptable
+//! adversarial suite — partition topology, clock rollback, equivocation,
+//! withholding, mule routes, each with an ablation (`spec/02` §9) — builds on
+//! this.
 //!
-//! Conventional testing will not find the bugs in this system. The failures
-//! live in partition topology, message reordering and clock adversariality —
-//! regions unit tests do not reach and manual QA cannot reproduce.
+//! ## Determinism is the point
 //!
-//! Scriptable: partition topology over time, per-link bandwidth/latency/loss and
-//! MTU including a LoRa profile, clock skew and adversarial rollback, mule
-//! movement schedules, node loss and re-provisioning, and adversarial node
-//! behaviour — backdating, equivocation, withholding, replay.
+//! Running one seed twice produces a byte-identical report. There is no
+//! wall-clock read anywhere in the crate (invariant I4); logical time is the
+//! scenario's hard-coded ticks, and every key and nonce comes from a seeded
+//! `splitmix64` stream. Later scenarios assert invariant violations and exit
+//! non-zero; this one asserts the sealing invariant and does the same.
 //!
-//! Every run asserts the system invariants: convergence, order preservation,
-//! tamper detection attributed to the correct key, coverage soundness (asserted
-//! one-sidedly — overstating knowledge is the cardinal sin), and no panics or
-//! unbounded growth.
+//! ```text
+//! cargo run -p vigil-sim -- --seed 1
+//! ```
 
-fn main() {
-    println!("vigil-sim: scaffold only — see docs/VIGILARCH.md §16.1 for the design");
+use std::process::ExitCode;
+
+use vigil_sim::sim;
+
+fn main() -> ExitCode {
+    let seed = match parse_seed(std::env::args().skip(1)) {
+        Ok(seed) => seed,
+        Err(msg) => {
+            eprintln!("{msg}");
+            eprintln!("usage: vigil-sim --scenario minimal --seed <n>");
+            return ExitCode::from(2);
+        }
+    };
+
+    let report = sim::run(seed);
+    print!("{}", report.text);
+
+    if report.sealed_ok {
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("invariant violation: the sealing check did not hold");
+        ExitCode::FAILURE
+    }
+}
+
+/// Accepts `--seed <n>` and an optional `--scenario minimal` (the only scenario
+/// in this version). Order-independent; defaults the seed to 1.
+fn parse_seed(mut args: impl Iterator<Item = String>) -> Result<u64, String> {
+    let mut seed: u64 = 1;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--seed" => {
+                let raw = args.next().ok_or("--seed needs a value")?;
+                seed = raw.parse().map_err(|_| format!("not a u64: {raw}"))?;
+            }
+            "--scenario" => {
+                let name = args.next().ok_or("--scenario needs a value")?;
+                if name != "minimal" {
+                    return Err(format!("unknown scenario: {name} (only `minimal` in v1)"));
+                }
+            }
+            other => return Err(format!("unexpected argument: {other}")),
+        }
+    }
+    Ok(seed)
 }

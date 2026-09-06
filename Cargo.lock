@@ -1366,9 +1366,9 @@ name = "vigil-sim"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "ed25519-dalek",
  "vigil-core",
  "vigil-ledger",
- "vigil-sync",
 ]
 
 [[package]]
