@@ -58,6 +58,6 @@ pub use chain::{
     verify_all, verify_chain,
 };
 pub use dag::{AckFinding, AckFindingReason, Dag, DagNode};
-pub use fork::Quarantine;
+pub use fork::{Quarantine, detect_forks};
 pub use memory::MemoryStore;
 pub use store::{ChainHead, Store, StoreError, StoredAttestation, StoredObservation};

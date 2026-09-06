@@ -91,6 +91,11 @@ pub struct Dag {
     /// itself).
     reach: BTreeMap<DagNode, BTreeSet<DagNode>>,
     findings: Vec<AckFinding>,
+    /// Keys a validated fork proof has convicted (`spec/02` §6). Read by
+    /// [`bracket`](Dag::bracket) to flag a quarantined author's unwitnessed
+    /// records `disputed`; already applied above by dropping quarantined
+    /// witnesses' seal edges.
+    quarantined: BTreeSet<PubKey>,
 }
 
 impl Dag {
@@ -119,16 +124,6 @@ impl Dag {
             if verify_id(sa.attestation.witness, sa.id, &sa.signature).is_ok() {
                 attestations.insert(sa.id, sa);
             }
-        }
-
-        let mut by_author: BTreeMap<PubKey, BTreeMap<Seq, BTreeSet<Hash>>> = BTreeMap::new();
-        for so in observations.values() {
-            by_author
-                .entry(so.observation.author)
-                .or_default()
-                .entry(so.observation.seq)
-                .or_default()
-                .insert(so.id);
         }
 
         let mut out: BTreeMap<DagNode, BTreeSet<DagNode>> = BTreeMap::new();
@@ -196,10 +191,16 @@ impl Dag {
             }
         }
 
-        // --- seal edges (§4.2): obs S@m -> att X for every held observation of
-        // X.subject at seq m <= X.subject_seq, when the held entry at
+        // --- seal edges (§4.2): obs S@m -> att X when the held entry at
         // X.subject_seq recomputes to X.subject_head and X.witness != X.subject.
-        // A quarantined witness contributes no seal edge (§6.5). ---
+        //
+        // The seal reaches every held entry that is a *chain ancestor* of the
+        // anchored head, not merely every held entry at a lower seq. Under
+        // equivocation the two differ: the sealing theorem (`spec/02` §5.2)
+        // proves only that "the entry — and, by the chain rule, every entry
+        // before it" existed when the witness signed, so a sibling on a fork
+        // branch the witness never saw is not sealed. On an unforked chain the
+        // sets coincide. A quarantined witness contributes no seal edge (§6.5). ---
         for x in attestations.values() {
             let a = &x.attestation;
             if a.witness == a.subject {
@@ -209,21 +210,30 @@ impl Dag {
             if quarantine.contains(&a.witness) {
                 continue;
             }
-            let anchored = observations.get(&a.subject_head).is_some_and(|anchor| {
-                anchor.observation.author == a.subject && anchor.observation.seq == a.subject_seq
-            });
-            if !anchored {
+            let Some(anchor) = observations.get(&a.subject_head) else {
                 // Unanchored: the verifier cannot confirm the head (§4.5).
                 continue;
+            };
+            if anchor.observation.author != a.subject || anchor.observation.seq != a.subject_seq {
+                continue;
             }
-            if let Some(seqs) = by_author.get(&a.subject) {
-                for ids in seqs.range(..=a.subject_seq).map(|(_, ids)| ids) {
-                    for sid in ids {
-                        out.entry(DagNode::Obs(*sid))
-                            .or_default()
-                            .insert(DagNode::Att(x.id));
-                    }
+            // Walk `prev` from the anchored head back through held entries.
+            let mut cursor = Some(a.subject_head);
+            let mut walked: BTreeSet<Hash> = BTreeSet::new();
+            while let Some(cur) = cursor {
+                if !walked.insert(cur) {
+                    break; // defensive: a `prev` cycle in hostile input
                 }
+                let Some(entry) = observations.get(&cur) else {
+                    break;
+                };
+                if entry.observation.author != a.subject {
+                    break;
+                }
+                out.entry(DagNode::Obs(cur))
+                    .or_default()
+                    .insert(DagNode::Att(x.id));
+                cursor = entry.observation.prev;
             }
         }
 
@@ -254,6 +264,7 @@ impl Dag {
             out,
             reach,
             findings,
+            quarantined: quarantine.keys().copied().collect(),
         })
     }
 
@@ -305,5 +316,12 @@ impl Dag {
     #[must_use]
     pub fn ack_findings(&self) -> &[AckFinding] {
         &self.findings
+    }
+
+    /// Whether `key` was quarantined for this build (`spec/02-entanglement.md`
+    /// §6).
+    #[must_use]
+    pub fn is_quarantined(&self, key: &PubKey) -> bool {
+        self.quarantined.contains(key)
     }
 }

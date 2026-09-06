@@ -72,9 +72,8 @@ pub struct Bracket {
     pub witness_depth: u32,
     pub unwitnessed_window: UnwitnessedWindow,
     /// Set when the record's author is quarantined and the record is
-    /// unwitnessed (`spec/02` §6.4). Always `false` until fork detection wires
-    /// in a [`Quarantine`]; a sealed record of a later-quarantined key stays
-    /// valid and undisputed.
+    /// unwitnessed (`spec/02` §6.4). A record of a quarantined key that was
+    /// sealed by an honest witness stays valid and undisputed (§6.5).
     pub disputed: bool,
 }
 
@@ -148,6 +147,10 @@ impl Dag {
             upper: upper_bound.map_or(WindowEdge::VerificationMoment, WindowEdge::Attestation),
         };
 
+        // A quarantined author's unwitnessed records are disputed (§6.4); its
+        // honestly sealed records stay valid (§6.5).
+        let disputed = self.is_quarantined(&author) && !sealed;
+
         Some(Bracket {
             observation: id,
             lower_bound,
@@ -155,7 +158,7 @@ impl Dag {
             sealed,
             witness_depth,
             unwitnessed_window,
-            disputed: false,
+            disputed,
         })
     }
 }
