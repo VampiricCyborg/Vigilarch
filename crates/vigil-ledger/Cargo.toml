@@ -20,6 +20,12 @@ vigil-core.workspace = true
 thiserror.workspace = true
 rusqlite = { workspace = true, optional = true }
 
+[dev-dependencies]
+# The DAG, bracketing and fork tests need real Ed25519 signatures — the ledger
+# verifies them, unlike the Store, which does not. Signing and verifying are
+# deterministic and need no RNG, so this builds for wasm32 too.
+ed25519-dalek.workspace = true
+
 # proptest pulls in wait-timeout, which does not build for wasm32. Gated to
 # native the same way vigil-core gates it, so `cargo test --target wasm32-*`
 # stays possible.

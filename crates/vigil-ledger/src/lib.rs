@@ -43,13 +43,19 @@
 
 #![forbid(unsafe_code)]
 
+pub mod attest;
 pub mod chain;
+pub mod dag;
+pub mod fork;
 pub mod memory;
 pub mod store;
 
+pub use attest::{IngestError, IngestOutcome, ingest_attestation};
 pub use chain::{
     AppendError, ChainMismatch, ChainVerification, ChainViolation, PrevRequirement, append,
     verify_all, verify_chain,
 };
+pub use dag::{AckFinding, AckFindingReason, Dag, DagNode};
+pub use fork::Quarantine;
 pub use memory::MemoryStore;
 pub use store::{ChainHead, Store, StoreError, StoredAttestation, StoredObservation};
