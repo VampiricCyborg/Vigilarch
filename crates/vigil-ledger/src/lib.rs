@@ -44,6 +44,7 @@
 #![forbid(unsafe_code)]
 
 pub mod attest;
+pub mod bracket;
 pub mod chain;
 pub mod dag;
 pub mod fork;
@@ -51,6 +52,7 @@ pub mod memory;
 pub mod store;
 
 pub use attest::{IngestError, IngestOutcome, ingest_attestation};
+pub use bracket::{Bracket, UnwitnessedWindow, WindowEdge, bracket};
 pub use chain::{
     AppendError, ChainMismatch, ChainVerification, ChainViolation, PrevRequirement, append,
     verify_all, verify_chain,
