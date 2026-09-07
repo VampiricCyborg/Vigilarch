@@ -18,11 +18,18 @@ Rules:
 |---|---|---|
 | `01-wire-format.md` | Canonical CBOR, content addressing, object encodings, version negotiation | M0 |
 | `02-entanglement.md` | Checkpoints, attestation exchange, the attestation DAG, the bracketing rule, fork proofs, and the non-guarantees | M1 |
-| `03-sync.md` | Merkle range reconciliation, priority classes, resumption, bundle framing | M2 |
+| `03-export-pack.md` | The self-contained evidence file for a bracket claim, and its verification | M1 |
 | `04-threat-model.md` | Adversaries, guarantees, explicit non-guarantees | after M1 |
 | `05-vocabulary.md` | The controlled tag vocabulary that makes signatures federate | M6 |
+| `06-sync.md` | Merkle range reconciliation, priority classes, resumption, bundle framing | M2 (v2) |
 
-`01-wire-format.md` and `02-entanglement.md` are written; `03` and `05` are not. `01`
+`03` was reassigned from the sync spec (now `06-sync.md`, unwritten, a v2 concern per
+`CLAUDE.md`) to the export pack, which is a v1 deliverable that `vigil-verify` depends on.
+Older references to `03-sync.md` in `spec/01` §6.1 and in code comments point at the same
+unwritten document under its old number; see ADR-0004.
+
+`01-wire-format.md`, `02-entanglement.md` and `03-export-pack.md` are written; `06` and
+`05` are not. `01`
 came first, and the golden vectors in `testdata/` were written directly against it before
 any ledger code depended on it. The vectors are a test of that document as much as of the
 code: if you cannot hand-compute a `fields -> preimage -> id -> signature` triple

@@ -277,7 +277,7 @@ the declaration order of the Rust enum.
 | 3 | `Form` | `{1: template: bstr16, 2: answers: map{uint => Value}}` |
 | 4 | `Sensor` | `{1: source: bstr16, 2: reading: [mantissa: int, exponent: int]}` |
 | 5 | `Presence` | `{1: actor: bstr16, 2: zone: bstr16, 3: event: uint}` — event 0 = Enter, 1 = Exit |
-| 6 | `Heartbeat` | `{1: node_state: map}` — shape defined in `03-sync.md` |
+| 6 | `Heartbeat` | `{1: node_state: map}` — shape defined in `06-sync.md` (unwritten, v2; was `03-sync.md` before ADR-0004) |
 
 ### 6.2 Blob manifest — tag `vigilarch/1/blob`
 
