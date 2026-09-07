@@ -165,5 +165,8 @@ fn different_seeds_produce_different_keys_but_still_seal() {
         one.text, two.text,
         "different seeds must diverge (keys and nonce differ)"
     );
-    assert!(one.sealed_ok && two.sealed_ok, "the invariant holds at any seed");
+    assert!(
+        one.sealed_ok && two.sealed_ok,
+        "the invariant holds at any seed"
+    );
 }

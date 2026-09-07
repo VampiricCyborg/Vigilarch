@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use ed25519_dalek::SigningKey;
 use vigil_core::{
     Attestation, Collision, Hash, Hlc, Object, Observation, ObservationBody, PubKey, Seq,
-    SignedObject, Signature, SiteId, public_key,
+    Signature, SignedObject, SiteId, public_key,
 };
 use vigil_ledger::{Dag, MemoryStore, Quarantine, Store, append, detect_forks};
 
@@ -19,12 +19,7 @@ fn pk(s: &SigningKey) -> PubKey {
     public_key(s)
 }
 
-fn note(
-    author: &SigningKey,
-    seq: Seq,
-    prev: Option<Hash>,
-    text: &str,
-) -> (Observation, Signature) {
+fn note(author: &SigningKey, seq: Seq, prev: Option<Hash>, text: &str) -> (Observation, Signature) {
     let o = Observation {
         author: pk(author),
         site: SITE,
@@ -39,7 +34,13 @@ fn note(
     (o, s)
 }
 
-fn attest(w: &SigningKey, subject: PubKey, head: Hash, seq: Seq, nonce: u8) -> (Attestation, Signature) {
+fn attest(
+    w: &SigningKey,
+    subject: PubKey,
+    head: Hash,
+    seq: Seq,
+    nonce: u8,
+) -> (Attestation, Signature) {
     let a = Attestation {
         witness: pk(w),
         subject,
@@ -144,12 +145,18 @@ fn quarantine_disputes_unwitnessed_records_but_keeps_sealed_ones_valid() {
 
     let dag = Dag::build(&s, &q).unwrap();
     let b0 = dag.bracket(id0).unwrap();
-    assert!(b0.sealed, "o0 was sealed by an honest witness before the fork");
+    assert!(
+        b0.sealed,
+        "o0 was sealed by an honest witness before the fork"
+    );
     assert!(!b0.disputed, "a pre-fork sealed record stays valid (§6.4)");
 
     let b1 = dag.bracket(o1.id()).unwrap();
     assert!(!b1.sealed);
-    assert!(b1.disputed, "the quarantined key's unwitnessed record is disputed");
+    assert!(
+        b1.disputed,
+        "the quarantined key's unwitnessed record is disputed"
+    );
 }
 
 #[test]

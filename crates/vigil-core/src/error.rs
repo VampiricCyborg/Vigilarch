@@ -33,7 +33,9 @@ pub enum DecodeError {
     #[error("map keys out of order or duplicated (§2.1 rule 3)")]
     MapKeyOrder,
 
-    #[error("elements of {what} are not in strictly ascending order (a second spelling of one set)")]
+    #[error(
+        "elements of {what} are not in strictly ascending order (a second spelling of one set)"
+    )]
     NotAscending { what: &'static str },
 
     #[error("optional field {0} is present but empty (§2.3) — absent and empty must not differ")]

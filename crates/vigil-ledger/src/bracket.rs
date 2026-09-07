@@ -111,9 +111,9 @@ impl Dag {
         let upper_bound = sealing
             .iter()
             .filter(|u| {
-                !sealing
-                    .iter()
-                    .any(|other| other != *u && self.reaches(DagNode::Att(*other), DagNode::Att(**u)))
+                !sealing.iter().any(|other| {
+                    other != *u && self.reaches(DagNode::Att(*other), DagNode::Att(**u))
+                })
             })
             .min()
             .copied();
@@ -135,9 +135,9 @@ impl Dag {
         let lower_bound = preceding
             .iter()
             .filter(|l| {
-                !preceding
-                    .iter()
-                    .any(|other| other != *l && self.reaches(DagNode::Att(**l), DagNode::Att(*other)))
+                !preceding.iter().any(|other| {
+                    other != *l && self.reaches(DagNode::Att(**l), DagNode::Att(*other))
+                })
             })
             .min()
             .copied();

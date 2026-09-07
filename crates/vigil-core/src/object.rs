@@ -12,7 +12,7 @@ use crate::cbor::{
 };
 use crate::error::{DecodeError, ForkProofInvalid};
 use crate::sign::verify_id;
-use crate::types::{GeoPoint, Hash, Hlc, OpaqueId, PubKey, Reading, Seq, SiteId, Signature};
+use crate::types::{GeoPoint, Hash, Hlc, OpaqueId, PubKey, Reading, Seq, Signature, SiteId};
 
 /// Domain separation: `tag || 0x00 || body` (§3.1).
 ///

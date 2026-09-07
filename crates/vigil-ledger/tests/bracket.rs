@@ -4,8 +4,8 @@
 
 use ed25519_dalek::SigningKey;
 use vigil_core::{
-    Attestation, Hash, Hlc, Object, Observation, ObservationBody, PubKey, Seq, SignedObject,
-    Signature, SiteId, public_key,
+    Attestation, Hash, Hlc, Object, Observation, ObservationBody, PubKey, Seq, Signature,
+    SignedObject, SiteId, public_key,
 };
 use vigil_ledger::{Dag, MemoryStore, Quarantine, Store, WindowEdge, append, bracket};
 
@@ -74,7 +74,9 @@ fn a_genesis_isolated_node_is_unwitnessed_with_a_window_open_both_sides() {
     }
 
     for id in ids {
-        let b = bracket(&s, id).unwrap().expect("a held observation brackets");
+        let b = bracket(&s, id)
+            .unwrap()
+            .expect("a held observation brackets");
         assert!(!b.sealed, "nothing witnessed this node");
         assert_eq!(b.upper_bound, None);
         assert_eq!(b.lower_bound, None);

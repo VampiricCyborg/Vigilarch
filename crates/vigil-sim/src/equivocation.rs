@@ -31,7 +31,7 @@ use std::fmt::Write as _;
 
 use ed25519_dalek::SigningKey;
 use vigil_core::{
-    Attestation, Hash, Hlc, Object, Observation, ObservationBody, PubKey, SignedObject, Signature,
+    Attestation, Hash, Hlc, Object, Observation, ObservationBody, PubKey, Signature, SignedObject,
     SiteId, public_key,
 };
 use vigil_ledger::{
@@ -150,7 +150,12 @@ pub fn run(seed: u64) -> RunReport {
 
     let _ = writeln!(t, "vigil-sim equivocation scenario");
     let _ = writeln!(t, "seed: {seed}");
-    let _ = writeln!(t, "node {} key: {} (equivocating author + honest witness)", a.name, a.pubkey());
+    let _ = writeln!(
+        t,
+        "node {} key: {} (equivocating author + honest witness)",
+        a.name,
+        a.pubkey()
+    );
     let _ = writeln!(t, "node {} key: {} (honest witness)", b.name, b.pubkey());
     let _ = writeln!(t, "node {} key: {} (honest, one entry)", c.name, c.pubkey());
 
@@ -167,19 +172,31 @@ pub fn run(seed: u64) -> RunReport {
     let _ = writeln!(t, "        A appends O1 seq=1 prev=O0 id={}", short(&o1_id));
 
     // 2. A equivocates: a second, genuinely distinct entry at seq=1, same prev.
-    let (o1p_id, o1p, o1p_sig) = a.note(1, Some(o0_id), 2500, "tag-out never applied, crew still on it");
-    append(&mut world, &o1p, &o1p_sig).expect("the guarded append does not refuse a sibling (spec/01 §6.6)");
+    let (o1p_id, o1p, o1p_sig) = a.note(
+        1,
+        Some(o0_id),
+        2500,
+        "tag-out never applied, crew still on it",
+    );
+    append(&mut world, &o1p, &o1p_sig)
+        .expect("the guarded append does not refuse a sibling (spec/01 §6.6)");
     let _ = writeln!(
         t,
         "step 2: A equivocates -> O1' seq=1 prev=O0 id={} (distinct body, distinct id)",
         short(&o1p_id)
     );
-    check(&mut t, "O1 and O1' are distinct signed objects", o1_id != o1p_id);
+    check(
+        &mut t,
+        "O1 and O1' are distinct signed objects",
+        o1_id != o1p_id,
+    );
 
     // 3. B witnesses only O1 — the branch that reached it. O1' is withheld from B.
     let (bw, bw_sig) = b.witness(a.pubkey(), o1_id, 1, 3000, &mut rng);
     let bw_id = bw.id();
-    world.put_attestation(&bw, &bw_sig).expect("store B's attestation");
+    world
+        .put_attestation(&bw, &bw_sig)
+        .expect("store B's attestation");
     let _ = writeln!(
         t,
         "step 3: B attests A@1 -> O1 id={} (B never saw O1'; a witness cannot know a sibling exists)",
@@ -191,7 +208,9 @@ pub fn run(seed: u64) -> RunReport {
     append(&mut world, &c0, &c0_sig).expect("C0 is a clean genesis");
     let (aw, aw_sig) = a.witness(c.pubkey(), c0_id, 0, 3500, &mut rng);
     let aw_id = aw.id();
-    world.put_attestation(&aw, &aw_sig).expect("store A's attestation of C0");
+    world
+        .put_attestation(&aw, &aw_sig)
+        .expect("store A's attestation of C0");
     let _ = writeln!(t, "step 4: C appends C0 seq=0 id={}", short(&c0_id));
     let _ = writeln!(
         t,
@@ -214,14 +233,22 @@ pub fn run(seed: u64) -> RunReport {
         ))
     );
     let _ = writeln!(t, "        verdict: {verdict:?}");
-    check(&mut t, "reports Violated", matches!(verdict, ChainVerification::Violated(_)));
+    check(
+        &mut t,
+        "reports Violated",
+        matches!(verdict, ChainVerification::Violated(_)),
+    );
     check(&mut t, "names A and both O1, O1' at seq=1", names_both);
 
     // 6. detect_forks: exactly one proof, convicting A, and idempotent.
     let _ = writeln!(t, "\nstep 6: detect_forks(world), called twice");
     let forks_1 = detect_forks(&world).expect("store");
     let forks_2 = detect_forks(&world).expect("store");
-    check(&mut t, "run is idempotent (identical proof lists)", forks_1 == forks_2);
+    check(
+        &mut t,
+        "run is idempotent (identical proof lists)",
+        forks_1 == forks_2,
+    );
     check(&mut t, "exactly one ForkProof", forks_1.len() == 1);
     let checked = forks_1
         .first()
@@ -236,14 +263,25 @@ pub fn run(seed: u64) -> RunReport {
     let newly = quarantine.apply(&checked);
     let _ = writeln!(t, "\nstep 7: Quarantine::apply(proof)");
     check(&mut t, "A was newly quarantined", newly);
-    check(&mut t, "quarantine now contains A", quarantine.contains(&a.pubkey()));
+    check(
+        &mut t,
+        "quarantine now contains A",
+        quarantine.contains(&a.pubkey()),
+    );
 
     // 8. Ablation A — empty quarantine. The DAG is unchanged from the ordinary path.
-    let _ = writeln!(t, "\nstep 8: Dag::build(world, &Quarantine::new())  [empty quarantine]");
+    let _ = writeln!(
+        t,
+        "\nstep 8: Dag::build(world, &Quarantine::new())  [empty quarantine]"
+    );
     let open = Dag::build(&world, &Quarantine::new()).expect("store");
 
     let br_c0 = open.bracket(c0_id).expect("C0 is a vertex");
-    check(&mut t, "C0 is sealed by A's honest attestation", br_c0.sealed);
+    check(
+        &mut t,
+        "C0 is sealed by A's honest attestation",
+        br_c0.sealed,
+    );
     check(
         &mut t,
         "C0's upper bound is A's attestation of C0",
@@ -252,7 +290,11 @@ pub fn run(seed: u64) -> RunReport {
 
     let br_o1 = open.bracket(o1_id).expect("O1 is a vertex");
     let br_o1p = open.bracket(o1p_id).expect("O1' is a vertex");
-    check(&mut t, "O1 (the branch B saw) is sealed by B", br_o1.sealed && br_o1.upper_bound == Some(bw_id));
+    check(
+        &mut t,
+        "O1 (the branch B saw) is sealed by B",
+        br_o1.sealed && br_o1.upper_bound == Some(bw_id),
+    );
     check(
         &mut t,
         "O1' (the withheld sibling) is NOT sealed, despite sharing A's chain and seq with sealed O1",
@@ -260,7 +302,10 @@ pub fn run(seed: u64) -> RunReport {
     );
 
     // 9. Ablation B — same held objects, A quarantined. Only the argument differs.
-    let _ = writeln!(t, "\nstep 9: Dag::build(world, &quarantine)  [A quarantined; identical held objects]");
+    let _ = writeln!(
+        t,
+        "\nstep 9: Dag::build(world, &quarantine)  [A quarantined; identical held objects]"
+    );
     let held = Dag::build(&world, &quarantine).expect("store");
 
     let br_c0_q = held.bracket(c0_id).expect("C0 is a vertex");

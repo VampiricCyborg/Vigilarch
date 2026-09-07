@@ -48,7 +48,7 @@ use std::fmt::Write as _;
 
 use ed25519_dalek::SigningKey;
 use vigil_core::{
-    Attestation, Hash, Hlc, Object, Observation, ObservationBody, PubKey, SignedObject, Signature,
+    Attestation, Hash, Hlc, Object, Observation, ObservationBody, PubKey, Signature, SignedObject,
     SiteId, public_key,
 };
 use vigil_ledger::{
@@ -186,7 +186,12 @@ pub fn run(seed: u64) -> RunReport {
 
     let _ = writeln!(t, "vigil-sim sealing-ablation scenario");
     let _ = writeln!(t, "seed: {seed}");
-    let _ = writeln!(t, "node {} key: {} (honest author, both runs)", a.name, a.pubkey());
+    let _ = writeln!(
+        t,
+        "node {} key: {} (honest author, both runs)",
+        a.name,
+        a.pubkey()
+    );
     let _ = writeln!(
         t,
         "node {} key: {} (witness; performs the exchange in run A only)",
@@ -197,11 +202,18 @@ pub fn run(seed: u64) -> RunReport {
     // --- A's honest chain: signed once, used verbatim by both runs. -----------
     let (o0_id, o0, o0_sig) = a.note(0, None, 1000, "grid B4 shoring is out of plumb");
     let (o1_id, o1, o1_sig) = a.note(1, Some(o0_id), 2000, "tag-out re-checked, crew clear");
-    let (o2_id, o2, o2_sig) = a.note(2, Some(o1_id), 3000, "shoring re-shimmed, plumb within tolerance");
-    let chain: [(&Observation, &Signature); 3] =
-        [(&o0, &o0_sig), (&o1, &o1_sig), (&o2, &o2_sig)];
+    let (o2_id, o2, o2_sig) = a.note(
+        2,
+        Some(o1_id),
+        3000,
+        "shoring re-shimmed, plumb within tolerance",
+    );
+    let chain: [(&Observation, &Signature); 3] = [(&o0, &o0_sig), (&o1, &o1_sig), (&o2, &o2_sig)];
 
-    let _ = writeln!(t, "\nA's chain (one set of signed objects, shared by both runs):");
+    let _ = writeln!(
+        t,
+        "\nA's chain (one set of signed objects, shared by both runs):"
+    );
     let _ = writeln!(
         t,
         "  O0 seq=0 prev=-            id={} sig={}",
@@ -222,7 +234,10 @@ pub fn run(seed: u64) -> RunReport {
         short(&o2_id),
         sig_short(&o2_sig)
     );
-    let _ = writeln!(t, "  none of O0..O2 acks any attestation (acks = {{}} throughout)");
+    let _ = writeln!(
+        t,
+        "  none of O0..O2 acks any attestation (acks = {{}} throughout)"
+    );
 
     // --- Run A: A's chain + the ordinary attestation exchange over A@1. -------
     let mut world_a = MemoryStore::new();
@@ -245,7 +260,10 @@ pub fn run(seed: u64) -> RunReport {
     for (obs, sig) in chain {
         append(&mut world_b, obs, sig).expect("A's chain links cleanly (run B)");
     }
-    let _ = writeln!(t, "run B: no meeting; not one Attestation object in the store");
+    let _ = writeln!(
+        t,
+        "run B: no meeting; not one Attestation object in the store"
+    );
 
     // --- The held chains are byte-for-byte identical. ------------------------
     let chain_a = world_a.chain(&a.pubkey()).expect("store");
@@ -291,7 +309,12 @@ pub fn run(seed: u64) -> RunReport {
         world_a.all_attestations().expect("store").len().to_string(),
         world_b.all_attestations().expect("store").len().to_string(),
     );
-    row(&mut t, "sealed", br_a.sealed.to_string(), br_b.sealed.to_string());
+    row(
+        &mut t,
+        "sealed",
+        br_a.sealed.to_string(),
+        br_b.sealed.to_string(),
+    );
     row(
         &mut t,
         "upper_bound",
@@ -320,8 +343,16 @@ pub fn run(seed: u64) -> RunReport {
     // --- Assertions: run A seals O0, run B leaves it unwitnessed and open. --
     let _ = writeln!(t, "\nrun A — the one attestation seals O0:");
     check(&mut t, "bracket(O0).sealed is true", br_a.sealed);
-    check(&mut t, "upper bound is B's attestation of A@1", br_a.upper_bound == Some(att_id));
-    check(&mut t, "witness depth is at least 1", br_a.witness_depth >= 1);
+    check(
+        &mut t,
+        "upper bound is B's attestation of A@1",
+        br_a.upper_bound == Some(att_id),
+    );
+    check(
+        &mut t,
+        "witness depth is at least 1",
+        br_a.witness_depth >= 1,
+    );
     check(
         &mut t,
         "window upper edge is bounded (Attestation, not VerificationMoment)",
@@ -332,11 +363,22 @@ pub fn run(seed: u64) -> RunReport {
         "window lower edge is honestly open to Genesis (no lower-bound attestation)",
         br_a.unwitnessed_window.lower == WindowEdge::Genesis,
     );
-    check(&mut t, "O0 is not disputed (author is not quarantined)", !br_a.disputed);
+    check(
+        &mut t,
+        "O0 is not disputed (author is not quarantined)",
+        !br_a.disputed,
+    );
 
-    let _ = writeln!(t, "\nrun B — with no attestation, O0 is unwitnessed and the window is open:");
+    let _ = writeln!(
+        t,
+        "\nrun B — with no attestation, O0 is unwitnessed and the window is open:"
+    );
     check(&mut t, "bracket(O0).sealed is false", !br_b.sealed);
-    check(&mut t, "there is no upper-bound attestation", br_b.upper_bound.is_none());
+    check(
+        &mut t,
+        "there is no upper-bound attestation",
+        br_b.upper_bound.is_none(),
+    );
     check(&mut t, "witness depth is 0", br_b.witness_depth == 0);
     check(
         &mut t,

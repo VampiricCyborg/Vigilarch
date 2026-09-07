@@ -2,7 +2,7 @@
 //! the `(witness, nonce)` deduplication / conflict rule.
 
 use ed25519_dalek::SigningKey;
-use vigil_core::{Attestation, Hash, Hlc, Object, PubKey, SignedObject, Signature, public_key};
+use vigil_core::{Attestation, Hash, Hlc, Object, PubKey, Signature, SignedObject, public_key};
 use vigil_ledger::{IngestError, IngestOutcome, MemoryStore, Store, ingest_attestation};
 
 fn sk(seed: u8) -> SigningKey {

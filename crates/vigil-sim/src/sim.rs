@@ -19,8 +19,8 @@ use std::fmt::Write as _;
 
 use ed25519_dalek::SigningKey;
 use vigil_core::{
-    Attestation, Checkpoint, Hash, Hlc, Object, Observation, ObservationBody, PubKey, SignedObject,
-    Signature, SiteId, public_key,
+    Attestation, Checkpoint, Hash, Hlc, Object, Observation, ObservationBody, PubKey, Signature,
+    SignedObject, SiteId, public_key,
 };
 use vigil_ledger::{
     Bracket, IngestOutcome, MemoryStore, Store, WindowEdge, append, bracket, ingest_attestation,
@@ -151,7 +151,13 @@ pub fn run(seed: u64) -> RunReport {
     let _ = writeln!(t, "node B key: {}", b.pubkey());
 
     // 1. A writes genesis.
-    let (o0_id, o0, o0_sig) = a.append_note(0, None, BTreeSet::new(), 1000, "grid B4 shoring is out of plumb");
+    let (o0_id, o0, o0_sig) = a.append_note(
+        0,
+        None,
+        BTreeSet::new(),
+        1000,
+        "grid B4 shoring is out of plumb",
+    );
     let _ = writeln!(t, "[t=1000] A appends O0 seq=0 id={}", short(&o0_id));
 
     // 2. The meeting.
@@ -185,8 +191,13 @@ pub fn run(seed: u64) -> RunReport {
     let _ = writeln!(t, "[t=2000] O0 relayed A->B");
 
     // 3. A acks the meeting in its next entry.
-    let (o1_id, o1, o1_sig) =
-        a.append_note(1, Some(o0_id), BTreeSet::from([u_id]), 3000, "tag-out re-checked after the meeting");
+    let (o1_id, o1, o1_sig) = a.append_note(
+        1,
+        Some(o0_id),
+        BTreeSet::from([u_id]),
+        3000,
+        "tag-out re-checked after the meeting",
+    );
     b.store.put_observation(&o1, &o1_sig).expect("relay O1");
     let _ = writeln!(
         t,
@@ -204,12 +215,14 @@ pub fn run(seed: u64) -> RunReport {
     let _ = writeln!(
         t,
         "  upper bound: {}",
-        br.upper_bound.map_or("none".into(), |h| format!("U id={}", short(&h)))
+        br.upper_bound
+            .map_or("none".into(), |h| format!("U id={}", short(&h)))
     );
     let _ = writeln!(
         t,
         "  lower bound: {}",
-        br.lower_bound.map_or("none".into(), |h| format!("id={}", short(&h)))
+        br.lower_bound
+            .map_or("none".into(), |h| format!("id={}", short(&h)))
     );
     let _ = writeln!(t, "  witness depth: {}", br.witness_depth);
     let _ = writeln!(
@@ -233,10 +246,7 @@ pub fn run(seed: u64) -> RunReport {
         if sealed_ok { "ok" } else { "VIOLATED" }
     );
 
-    RunReport {
-        text: t,
-        sealed_ok,
-    }
+    RunReport { text: t, sealed_ok }
 }
 
 fn window_edge(e: &WindowEdge) -> String {

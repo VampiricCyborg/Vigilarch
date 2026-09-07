@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 
 use ed25519_dalek::SigningKey;
 use vigil_core::{
-    Attestation, Hash, Hlc, Object, Observation, ObservationBody, PubKey, Seq, SignedObject,
-    Signature, SiteId, public_key,
+    Attestation, Hash, Hlc, Object, Observation, ObservationBody, PubKey, Seq, Signature,
+    SignedObject, SiteId, public_key,
 };
 use vigil_ledger::{Dag, DagNode, MemoryStore, Quarantine, Store, append};
 
@@ -80,7 +80,10 @@ fn chain_edge_links_consecutive_entries() {
 
     let d = dag(&s);
     assert!(d.reaches(DagNode::Obs(id0), DagNode::Obs(id1)), "0 ⟶ 1");
-    assert!(!d.reaches(DagNode::Obs(id1), DagNode::Obs(id0)), "not 1 ⟶ 0");
+    assert!(
+        !d.reaches(DagNode::Obs(id1), DagNode::Obs(id0)),
+        "not 1 ⟶ 0"
+    );
 }
 
 #[test]
@@ -95,7 +98,11 @@ fn seal_edge_from_subject_entry_to_a_distinct_witness_attestation() {
 
     let d = dag(&s);
     assert!(d.reaches(DagNode::Obs(id0), DagNode::Att(att_id)), "o0 ⟶ U");
-    assert_eq!(d.attestation(&att_id), Some(&att), "the attestation is a vertex");
+    assert_eq!(
+        d.attestation(&att_id),
+        Some(&att),
+        "the attestation is a vertex"
+    );
 }
 
 #[test]
@@ -112,7 +119,10 @@ fn ack_edge_from_attestation_to_the_entry_that_commits_to_it() {
 
     let d = dag(&s);
     assert!(d.reaches(DagNode::Att(att_id), DagNode::Obs(id1)), "U ⟶ o1");
-    assert!(d.ack_findings().is_empty(), "the ack is lawful — no finding");
+    assert!(
+        d.ack_findings().is_empty(),
+        "the ack is lawful — no finding"
+    );
 }
 
 #[test]
@@ -132,8 +142,14 @@ fn the_partial_order_is_transitively_closed() {
 
     let d = dag(&s);
     assert!(d.reaches(DagNode::Obs(id0), DagNode::Att(att_id)));
-    assert!(d.reaches(DagNode::Att(att_id), DagNode::Obs(id2)), "U ⟶ o1 ⟶ o2");
-    assert!(d.reaches(DagNode::Obs(id0), DagNode::Obs(id2)), "closure: o0 ⟶ o2");
+    assert!(
+        d.reaches(DagNode::Att(att_id), DagNode::Obs(id2)),
+        "U ⟶ o1 ⟶ o2"
+    );
+    assert!(
+        d.reaches(DagNode::Obs(id0), DagNode::Obs(id2)),
+        "closure: o0 ⟶ o2"
+    );
 }
 
 #[test]
@@ -148,7 +164,10 @@ fn an_unanchored_attestation_seals_nothing() {
     let att_id = s.put_attestation(&att, &atts).unwrap();
 
     let d = dag(&s);
-    assert!(d.attestation(&att_id).is_some(), "still a vertex (retained)");
+    assert!(
+        d.attestation(&att_id).is_some(),
+        "still a vertex (retained)"
+    );
     assert!(
         !d.reaches(DagNode::Obs(id0), DagNode::Att(att_id)),
         "no seal edge from an unanchored attestation"
@@ -166,7 +185,10 @@ fn a_self_attestation_seals_nothing() {
     let att_id = s.put_attestation(&att, &atts).unwrap();
 
     let d = dag(&s);
-    assert!(d.attestation(&att_id).is_some(), "still a vertex (retained)");
+    assert!(
+        d.attestation(&att_id).is_some(),
+        "still a vertex (retained)"
+    );
     assert!(
         !d.reaches(DagNode::Obs(id0), DagNode::Att(att_id)),
         "witness == subject: no seal edge"
@@ -196,7 +218,11 @@ fn an_acks_entry_naming_a_wrong_subject_is_a_finding_not_an_edge() {
     let findings = d.ack_findings();
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].observation, a_id1);
-    assert_eq!(findings[0].author, pk(&a), "attributable to the acking author");
+    assert_eq!(
+        findings[0].author,
+        pk(&a),
+        "attributable to the acking author"
+    );
 }
 
 #[test]
@@ -209,7 +235,9 @@ fn an_observation_with_a_bad_signature_is_not_a_vertex() {
         prev: None,
         seq: 0,
         hlc: Hlc::new(1_700_000_000_000, 0),
-        body: ObservationBody::Note { text: "forged".into() },
+        body: ObservationBody::Note {
+            text: "forged".into(),
+        },
         geo: None,
         acks: BTreeSet::new(),
     };
@@ -304,7 +332,10 @@ fn dag_construction_is_independent_of_write_order() {
 fn dag_construction_is_independent_of_duplicate_writes() {
     let once = fingerprint(&dag(&mixed_store(&[0, 1, 2, 3, 4])));
     let with_dups = fingerprint(&dag(&mixed_store(&[0, 0, 1, 2, 2, 3, 4, 1, 3, 4])));
-    assert_eq!(once, with_dups, "re-delivering an object must change nothing");
+    assert_eq!(
+        once, with_dups,
+        "re-delivering an object must change nothing"
+    );
 }
 
 #[cfg(not(target_family = "wasm"))]
