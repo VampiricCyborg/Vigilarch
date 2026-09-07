@@ -1,10 +1,14 @@
 [package]
 name = "vigil-node"
-description = "The node binary: --role edge|hub|mule, plus the loopback HTTP API the PWA and console consume."
+description = "The node binary: a single-process, loopback-only HTTP ledger — capture, provenance, and evidence-pack export over one in-memory vigil-ledger Store."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+
+[lib]
+name = "vigil_node"
+path = "src/lib.rs"
 
 [[bin]]
 name = "vigil-node"
@@ -13,8 +17,12 @@ path = "src/main.rs"
 [dependencies]
 vigil-core.workspace = true
 vigil-ledger.workspace = true
-vigil-sync.workspace = true
-vigil-transport.workspace = true
-vigil-insight.workspace = true
-tokio.workspace = true
+ed25519-dalek.workspace = true
+
+# A synchronous, ~4-dependency HTTP/1.1 server. See the rationale in src/main.rs.
+tiny_http = "0.12"
+serde_json.workspace = true
+getrandom = "0.3"
+hex.workspace = true
+thiserror.workspace = true
 anyhow.workspace = true

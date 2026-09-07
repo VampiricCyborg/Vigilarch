@@ -57,12 +57,20 @@ and three distinct tamper verdicts, and `vigil-verify` implements the `spec/03` 
 verification procedure — an independent second traversal that links only `vigil-core`,
 reproduces every bracket claim from the pack alone, and exits nonzero on any tamper.
 
+`vigil-node` runs a single process over one in-memory ledger and exposes a loopback HTTP
+API: `POST /obs` to capture, `GET /obs/{id}/provenance` for the bracket and chain state
+`vigil-ledger` computes, `POST /export` for the pack a person hands to `vigil-verify`,
+and `GET /health`. It is not a multi-node system — there is no peer and no sync — so a
+record it holds is reported `unwitnessed` with an open window, which is the honest output
+for a node with no witness, not a gap.
+
 The three scenarios run across a seed range as one aggregate — `vigil-sim --scale-up
 --seeds 1000` — and every scenario passes every seed (see [Evaluation](#evaluation)).
 
-Still to come: `vigil-node`, the rest of the seeded adversarial scenarios with their
-ablation runs, and the parts of the evaluation table that need them — witness-latency
-distribution, attestation-graph density, key-attribution accuracy.
+Still to come: the multi-node sync `vigil-node` needs to seal anything (v2), the rest of
+the seeded adversarial scenarios with their ablation runs, and the parts of the
+evaluation table that need them — witness-latency distribution, attestation-graph
+density, key-attribution accuracy.
 
 This is a **public repository with a self-contained demo**, not a product. There are no
 customers, sites, hardware or users. Everything runs on one machine from a seed. The
@@ -107,7 +115,7 @@ that the suite does not check.
 | `vigil-sim --scale-up` runs every scenario once per seed over a range, counts pass/fail per seed with the total defended by an assertion, and exits non-zero naming the first failing seed | the same |
 | Golden vectors regenerate identically, so drift between generator and checked-in bytes cannot pass unnoticed | CI regenerates and diffs |
 
-Current suite: 142 tests native, 13 of them re-run under `wasm32-wasip1`; `vigil-core`
+Current suite: 149 tests native, 13 of them re-run under `wasm32-wasip1`; `vigil-core`
 and `vigil-ledger` both compile to `wasm32-unknown-unknown` (invariant I2).
 
 Two observation body variants are deliberately **not** implemented. Variants 3 (`Form`)
@@ -128,7 +136,7 @@ below carries measured numbers. Development stops at that line.
 | 2 | `vigil-ledger` — `Store` trait, append-only store, hash chains, full-chain verification | done |
 | 3 | Attestation ingest, DAG, bracketing/sealing queries, fork proofs, quarantine | done |
 | 4 | `vigil-sim` — seeded simulator over the *real* ledger | minimal, equivocation, and sealing-ablation scenarios landed, with a `--scale-up` runner aggregating them over a seed range; grows with the adversarial suite |
-| 5 | `vigil-node --role edge\|hub\|mule` | not started |
+| 5 | `vigil-node` — single-process loopback HTTP ledger (capture, provenance, export, health) | done for v1 scope; `--role edge\|hub\|mule` is a no-op until sync exists (v2) |
 | 6 | Export pack + `vigil-verify` — the independent verifier | pack specified (`spec/03`, ADR-0004) and assembled; `vigil-verify` implements the `spec/03` §5 procedure against every fixture |
 | 7 | `spec/02-entanglement.md` and `spec/03-export-pack.md` (done, with worked detail), `spec/04-threat-model.md` (after M1, by design) | in progress |
 | 8 | Seeded scenarios, each paired with an ablation run | three scenarios (equivocation carries a quarantine ablation; sealing-ablation contrasts a witnessed and an unwitnessed run over one honest chain); the full seeded adversarial set is next |
@@ -163,8 +171,7 @@ seed produces a byte-identical transcript is a separate assertion in the test su
 The remaining metrics — witness-latency distribution, attestation-graph density, and
 key-attribution accuracy as a rate — are **not measured yet** and will not be filled in
 with estimates. They need the scriptable adversarial suite (partition topology, clock
-rollback, withholding, mule routes) and `vigil-node`, and the demo transcript that ties
-them together.
+rollback, withholding, mule routes) and the demo transcript that ties them together.
 
 ## Not built here
 
@@ -204,7 +211,8 @@ crates/
   vigil-core/     deterministic CBOR, BLAKE3 addressing, Ed25519, HLC, ForkProof
   vigil-ledger/   Store trait, append-only store, hash chains, attestation DAG,
                   bracketing, fork detection, quarantine
-  vigil-node/     the binary: --role edge|hub|mule, loopback HTTP API, pack export
+  vigil-node/     the binary: single-process loopback HTTP ledger (capture, provenance,
+                  export, health) over one in-memory Store
   vigil-sim/      deterministic seeded simulator over the real ledger (lib + bin)
   vigil-verify/   independent verifier: evidence pack + org key in, ordering out
 spec/             the protocol specifications — stricter review than code
@@ -220,8 +228,9 @@ and the organisation's public key alone, and exits nonzero on any tamper.
 
 The workspace still contains `vigil-sync`, `vigil-transport`, `vigil-insight` and
 `vigil-wasm` as empty scaffolding from the pre-cut scope. They build but implement
-nothing, and they are slated for removal. `vigil-sim` no longer depends on `vigil-sync`:
-it moves objects between nodes over the scripted link directly.
+nothing, and they are slated for removal. Neither `vigil-sim` nor `vigil-node` depends on
+any of them: the simulator moves objects over the scripted link directly, and the node is
+a single process with no sync layer to wire up.
 
 ## Invariants
 
@@ -303,6 +312,7 @@ cargo run -p vigil-sim -- --scenario minimal --seed 1          # minimal entangl
 cargo run -p vigil-sim -- --scenario equivocation --seed 1     # equivocation + quarantine ablation
 cargo run -p vigil-sim -- --scenario sealing-ablation --seed 1 # one honest chain, with vs. without a single attestation
 cargo run -p vigil-sim --release -- --scale-up --seeds 1000    # every scenario over 1000 seeds; nonzero exit on any failing seed
+cargo run -p vigil-node -- --addr 127.0.0.1:8787              # single-process loopback ledger; POST /obs, GET /obs/{id}/provenance, POST /export
 ```
 
 To run the golden vectors under WASM, as CI does:
