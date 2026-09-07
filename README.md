@@ -47,10 +47,13 @@ implements it — deterministic CBOR, BLAKE3 content addressing, Ed25519 signatu
 hybrid logical clock. `vigil-ledger` has the `Store` trait, the append-only store,
 per-node hash chains with the three-way `seq`/`prev` verification pass, and the
 entanglement layer on top of it: attestation ingest, the attestation DAG, the bracketing
-query, fork detection with self-verifying proofs, and quarantine. `vigil-sim` runs its
-first real scenario over that ledger, from a seed, with a byte-identical transcript.
+query, fork detection with self-verifying proofs, and quarantine. `vigil-sim` runs two
+scenarios over that ledger — a minimal attestation exchange and an equivocation scenario
+with a quarantine ablation — each from a seed, with a byte-identical transcript. The
+export pack is now specified (`spec/03-export-pack.md`, ADR-0004), with a hand-worked
+example and three distinct tamper verdicts, ahead of the `vigil-verify` implementation.
 
-Still to come: `vigil-node`, the export pack and `vigil-verify`, the rest of the seeded
+Still to come: `vigil-node`, the `vigil-verify` implementation, the rest of the seeded
 adversarial scenarios with their ablation runs, and the measured evaluation table.
 
 This is a **public repository with a self-contained demo**, not a product. There are no
@@ -60,8 +63,9 @@ predates a scope cut; `docs/REALITY-BRIEF.md` records the reasoning.
 
 ### What exists today
 
-`spec/01-wire-format.md` and `spec/02-entanglement.md`, each with worked detail
-reproducible by hand; six golden vectors in `testdata/vectors/`; `vigil-core`, which
+`spec/01-wire-format.md`, `spec/02-entanglement.md` and `spec/03-export-pack.md`, each
+with worked detail reproducible by hand; six golden vectors in `testdata/vectors/`;
+`vigil-core`, which
 reproduces every one of them — and the wire-format worked example — byte for byte; and
 `vigil-ledger`, which builds the per-node chains, the attestation DAG and the bracketing
 query on top of a storage-agnostic `Store` trait.
@@ -91,10 +95,10 @@ that the suite does not check.
 | A genesis-isolated node is `unwitnessed` with a window open both sides — **no alarm** (§8.2) | `crates/vigil-ledger/tests/bracket.rs` |
 | Adding a valid attestation never widens a bracket (§5.5), and the bracket is identical across ingest orders (§5.6) | the same |
 | Equivocation yields one self-verifying `ForkProof`; quarantine disputes the key's unwitnessed records but keeps pre-fork sealed ones valid (§6.4–6.5) | `crates/vigil-ledger/tests/fork.rs` |
-| `vigil-sim` produces a byte-identical transcript from a seed, and its sealing invariant holds | `crates/vigil-sim/tests/scenario.rs` |
+| `vigil-sim` produces a byte-identical transcript from a seed; the minimal scenario's sealing invariant holds and the equivocation scenario convicts the author, never seals the withheld sibling, and shows quarantine acting only forward | `crates/vigil-sim/tests/scenario.rs` |
 | Golden vectors regenerate identically, so drift between generator and checked-in bytes cannot pass unnoticed | CI regenerates and diffs |
 
-Current suite: 102 tests native, 13 of them re-run under `wasm32-wasip1`; `vigil-core`
+Current suite: 104 tests native, 13 of them re-run under `wasm32-wasip1`; `vigil-core`
 and `vigil-ledger` both compile to `wasm32-unknown-unknown` (invariant I2).
 
 Two observation body variants are deliberately **not** implemented. Variants 3 (`Form`)
@@ -114,11 +118,11 @@ below carries measured numbers. Development stops at that line.
 | 1 | `vigil-core` — deterministic CBOR, BLAKE3, Ed25519, HLC | done |
 | 2 | `vigil-ledger` — `Store` trait, append-only store, hash chains, full-chain verification | done |
 | 3 | Attestation ingest, DAG, bracketing/sealing queries, fork proofs, quarantine | done |
-| 4 | `vigil-sim` — seeded simulator over the *real* ledger | first scenario landed; grows with the adversarial suite |
+| 4 | `vigil-sim` — seeded simulator over the *real* ledger | minimal + equivocation scenarios landed; grows with the adversarial suite |
 | 5 | `vigil-node --role edge\|hub\|mule` | not started |
-| 6 | Export pack + `vigil-verify` — the independent verifier | not started |
-| 7 | `spec/02-entanglement.md` (done, with vectors + code), `spec/04-threat-model.md` (after M1, by design) | in progress |
-| 8 | Seeded scenarios, each paired with an ablation run | one scenario; the seeded adversarial set with ablations is next |
+| 6 | Export pack + `vigil-verify` — the independent verifier | pack specified (`spec/03`, ADR-0004); `vigil-verify` not started |
+| 7 | `spec/02-entanglement.md` and `spec/03-export-pack.md` (done, with worked detail), `spec/04-threat-model.md` (after M1, by design) | in progress |
+| 8 | Seeded scenarios, each paired with an ablation run | two scenarios (the equivocation one carries a quarantine ablation); the full seeded adversarial set is next |
 | 9 | Measured evaluation table and demo transcript | not started |
 
 **Entanglement is the project.** It is built before anything that is not a prerequisite
@@ -266,7 +270,8 @@ Then:
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p vigil-core --example gen_vectors   # regenerates golden vectors; must be a no-op
-cargo run -p vigil-sim -- --seed 1              # the minimal entanglement scenario; same seed, same transcript
+cargo run -p vigil-sim -- --scenario minimal --seed 1        # minimal entanglement scenario; same seed, same transcript
+cargo run -p vigil-sim -- --scenario equivocation --seed 1   # equivocation + quarantine ablation
 ```
 
 To run the golden vectors under WASM, as CI does:
@@ -278,7 +283,7 @@ CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime cargo test -p vigil-core --target was
 
 ## Documentation
 
-- `spec/` — the wire format, entanglement protocol and threat model. Versioned from the
+- `spec/` — the wire format, entanglement protocol, export pack and threat model. Versioned from the
   first commit and held to stricter review than code: a protocol change that ships and
   cannot be rolled back is the worst failure mode this system has.
 - `docs/VIGILARCH.md` — the original design document. Aspirational, and it predates the
