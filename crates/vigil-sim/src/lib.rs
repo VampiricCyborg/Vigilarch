@@ -5,5 +5,6 @@
 
 #![forbid(unsafe_code)]
 
+pub mod equivocation;
 pub mod rng;
 pub mod sim;

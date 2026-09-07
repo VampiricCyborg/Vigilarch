@@ -2,7 +2,7 @@
 //! run is byte-identical from a seed (`spec/02-entanglement.md` §9, invariant
 //! I4). The adversarial suite will depend on the second.
 
-use vigil_sim::sim;
+use vigil_sim::{equivocation, sim};
 
 #[test]
 fn the_scenario_seals_the_observation_from_the_far_node() {
@@ -20,6 +20,27 @@ fn the_same_seed_produces_a_byte_identical_report() {
         assert_eq!(
             sim::run(seed).text,
             sim::run(seed).text,
+            "seed {seed} is not reproducible"
+        );
+    }
+}
+
+#[test]
+fn the_equivocation_scenario_holds_every_assertion_at_a_fixed_seed() {
+    let report = equivocation::run(1);
+    assert!(
+        report.passed,
+        "every assertion in the equivocation scenario must hold:\n{}",
+        report.text
+    );
+}
+
+#[test]
+fn the_equivocation_scenario_is_byte_identical_from_a_seed() {
+    for seed in [0u64, 1, 7, 42, u64::MAX] {
+        assert_eq!(
+            equivocation::run(seed).text,
+            equivocation::run(seed).text,
             "seed {seed} is not reproducible"
         );
     }
