@@ -3,7 +3,7 @@
 //! A seeded, fully reproducible simulator that runs virtual nodes on the *real*
 //! `vigil-ledger` over a scripted link. See `docs/VIGILARCH.md` §16.1.
 //!
-//! Two scenarios so far, both seed-driven and byte-identical from a seed:
+//! Three scenarios so far, all seed-driven and byte-identical from a seed:
 //!
 //! - `minimal` — two nodes, one attestation exchange, a check that the far
 //!   node's ledger seals the right record ([`vigil_sim::sim`]).
@@ -11,6 +11,10 @@
 //!   witness attests only the branch it saw, and quarantine is shown to change
 //!   only what a convicted key's attestations buy going forward
 //!   ([`vigil_sim::equivocation`]).
+//! - `sealing-ablation` — one honest chain run twice, with and without a single
+//!   attestation object, showing that the attestation is the entire distance
+//!   between "sealed, bounded" and "unwitnessed, open" — and that chain
+//!   verification is unaffected either way ([`vigil_sim::sealing_ablation`]).
 //!
 //! The scriptable adversarial suite — partition topology, clock rollback,
 //! withholding, mule routes, each with an ablation (`spec/02` §9) — builds on
@@ -27,17 +31,19 @@
 //! ```text
 //! cargo run -p vigil-sim -- --scenario minimal --seed 1
 //! cargo run -p vigil-sim -- --scenario equivocation --seed 1
+//! cargo run -p vigil-sim -- --scenario sealing-ablation --seed 1
 //! ```
 
 use std::process::ExitCode;
 
-use vigil_sim::{equivocation, sim};
+use vigil_sim::{equivocation, sealing_ablation, sim};
 
 /// Which scenario to run.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Scenario {
     Minimal,
     Equivocation,
+    SealingAblation,
 }
 
 fn main() -> ExitCode {
@@ -45,7 +51,9 @@ fn main() -> ExitCode {
         Ok(parsed) => parsed,
         Err(msg) => {
             eprintln!("{msg}");
-            eprintln!("usage: vigil-sim --scenario minimal|equivocation --seed <n>");
+            eprintln!(
+                "usage: vigil-sim --scenario minimal|equivocation|sealing-ablation --seed <n>"
+            );
             return ExitCode::from(2);
         }
     };
@@ -57,6 +65,10 @@ fn main() -> ExitCode {
         }
         Scenario::Equivocation => {
             let r = equivocation::run(seed);
+            (r.text, r.passed)
+        }
+        Scenario::SealingAblation => {
+            let r = sealing_ablation::run(seed);
             (r.text, r.passed)
         }
     };
@@ -86,6 +98,7 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<(Scenario, u64),
                 scenario = match name.as_str() {
                     "minimal" => Scenario::Minimal,
                     "equivocation" => Scenario::Equivocation,
+                    "sealing-ablation" => Scenario::SealingAblation,
                     other => return Err(format!("unknown scenario: {other}")),
                 };
             }

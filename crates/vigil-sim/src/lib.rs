@@ -7,4 +7,5 @@
 
 pub mod equivocation;
 pub mod rng;
+pub mod sealing_ablation;
 pub mod sim;
