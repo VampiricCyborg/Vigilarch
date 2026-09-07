@@ -57,8 +57,12 @@ and three distinct tamper verdicts, and `vigil-verify` implements the `spec/03` 
 verification procedure — an independent second traversal that links only `vigil-core`,
 reproduces every bracket claim from the pack alone, and exits nonzero on any tamper.
 
+The three scenarios run across a seed range as one aggregate — `vigil-sim --scale-up
+--seeds 1000` — and every scenario passes every seed (see [Evaluation](#evaluation)).
+
 Still to come: `vigil-node`, the rest of the seeded adversarial scenarios with their
-ablation runs, and the measured evaluation table.
+ablation runs, and the parts of the evaluation table that need them — witness-latency
+distribution, attestation-graph density, key-attribution accuracy.
 
 This is a **public repository with a self-contained demo**, not a product. There are no
 customers, sites, hardware or users. Everything runs on one machine from a seed. The
@@ -100,9 +104,10 @@ that the suite does not check.
 | Adding a valid attestation never widens a bracket (§5.5), and the bracket is identical across ingest orders (§5.6) | the same |
 | Equivocation yields one self-verifying `ForkProof`; quarantine disputes the key's unwitnessed records but keeps pre-fork sealed ones valid (§6.4–6.5) | `crates/vigil-ledger/tests/fork.rs` |
 | `vigil-sim` produces a byte-identical transcript from a seed; the minimal scenario's sealing invariant holds; the equivocation scenario convicts the author, never seals the withheld sibling, and shows quarantine acting only forward; and the sealing ablation shows one attestation is the whole difference between a sealed, bounded bracket and an unwitnessed, open one over a byte-identical honest chain | `crates/vigil-sim/tests/scenario.rs` |
+| `vigil-sim --scale-up` runs every scenario once per seed over a range, counts pass/fail per seed with the total defended by an assertion, and exits non-zero naming the first failing seed | the same |
 | Golden vectors regenerate identically, so drift between generator and checked-in bytes cannot pass unnoticed | CI regenerates and diffs |
 
-Current suite: 104 tests native, 13 of them re-run under `wasm32-wasip1`; `vigil-core`
+Current suite: 142 tests native, 13 of them re-run under `wasm32-wasip1`; `vigil-core`
 and `vigil-ledger` both compile to `wasm32-unknown-unknown` (invariant I2).
 
 Two observation body variants are deliberately **not** implemented. Variants 3 (`Form`)
@@ -122,12 +127,12 @@ below carries measured numbers. Development stops at that line.
 | 1 | `vigil-core` — deterministic CBOR, BLAKE3, Ed25519, HLC | done |
 | 2 | `vigil-ledger` — `Store` trait, append-only store, hash chains, full-chain verification | done |
 | 3 | Attestation ingest, DAG, bracketing/sealing queries, fork proofs, quarantine | done |
-| 4 | `vigil-sim` — seeded simulator over the *real* ledger | minimal, equivocation, and sealing-ablation scenarios landed; grows with the adversarial suite |
+| 4 | `vigil-sim` — seeded simulator over the *real* ledger | minimal, equivocation, and sealing-ablation scenarios landed, with a `--scale-up` runner aggregating them over a seed range; grows with the adversarial suite |
 | 5 | `vigil-node --role edge\|hub\|mule` | not started |
 | 6 | Export pack + `vigil-verify` — the independent verifier | pack specified (`spec/03`, ADR-0004) and assembled; `vigil-verify` implements the `spec/03` §5 procedure against every fixture |
 | 7 | `spec/02-entanglement.md` and `spec/03-export-pack.md` (done, with worked detail), `spec/04-threat-model.md` (after M1, by design) | in progress |
 | 8 | Seeded scenarios, each paired with an ablation run | three scenarios (equivocation carries a quarantine ablation; sealing-ablation contrasts a witnessed and an unwitnessed run over one honest chain); the full seeded adversarial set is next |
-| 9 | Measured evaluation table and demo transcript | not started |
+| 9 | Measured evaluation table and demo transcript | in progress — every scenario passes every seed over 1000 seeds (`--scale-up`); latency, graph density, attribution and the demo transcript still to come |
 
 **Entanglement is the project.** It is built before anything that is not a prerequisite
 for it, and it is never cut. `vigil-sim` grows alongside it from the first attestation
@@ -137,11 +142,29 @@ attestations disabled, asserting that the tamper goes *undetected* without them.
 
 ### Evaluation
 
-This table will carry measured numbers from seeded runs: detection rate over N runs,
-key-attribution accuracy, witness-latency distribution, and attestation-graph density.
+One command runs every scenario across a seed range and aggregates the result:
 
-**It is empty because nothing has been measured yet.** It will not be filled in with
-estimates.
+```
+cargo run -p vigil-sim --release -- --scale-up --seeds 1000
+```
+
+Each `(scenario, seed)` pair drives the real ledger once. The runner records pass or
+fail per seed — keeping the individual results, not just a counter — checks that
+`pass + fail` equals the seed count before printing anything, and exits non-zero
+naming the first failing scenario and seed if any scenario fails any seed. That every
+seed produces a byte-identical transcript is a separate assertion in the test suite.
+
+| Scenario | Seeds | What must hold on every seed | Result |
+|---|---|---|---|
+| `minimal` — honest partition | `0..1000` | `bracket(O0)` is sealed by the meeting, with the window honestly open below to genesis | 1000 / 1000 |
+| `equivocation` | `0..1000` | one self-verifying `ForkProof` convicts the author; the withheld sibling is never sealed; quarantine changes only what the convicted key's attestations buy going forward | 1000 / 1000 |
+| `sealing-ablation` | `0..1000` | with one attestation, `bracket(O0)` is sealed and bounded above; without it, unwitnessed and open above — over a byte-identical honest chain | 1000 / 1000 |
+
+The remaining metrics — witness-latency distribution, attestation-graph density, and
+key-attribution accuracy as a rate — are **not measured yet** and will not be filled in
+with estimates. They need the scriptable adversarial suite (partition topology, clock
+rollback, withholding, mule routes) and `vigil-node`, and the demo transcript that ties
+them together.
 
 ## Not built here
 
@@ -279,6 +302,7 @@ cargo run -p vigil-core --example gen_vectors   # regenerates golden vectors; mu
 cargo run -p vigil-sim -- --scenario minimal --seed 1          # minimal entanglement scenario; same seed, same transcript
 cargo run -p vigil-sim -- --scenario equivocation --seed 1     # equivocation + quarantine ablation
 cargo run -p vigil-sim -- --scenario sealing-ablation --seed 1 # one honest chain, with vs. without a single attestation
+cargo run -p vigil-sim --release -- --scale-up --seeds 1000    # every scenario over 1000 seeds; nonzero exit on any failing seed
 ```
 
 To run the golden vectors under WASM, as CI does:
