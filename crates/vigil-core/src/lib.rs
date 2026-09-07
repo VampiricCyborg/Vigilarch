@@ -28,7 +28,7 @@ pub mod types;
 
 pub use error::{DecodeError, ForkProofInvalid, SignatureError};
 pub use object::{
-    Attestation, BlobManifest, Checkpoint, CheckedFork, Collision, ForkEntry, ForkProof, Object,
+    Attestation, BlobManifest, CheckedFork, Checkpoint, Collision, ForkEntry, ForkProof, Object,
     Observation, ObservationBody, PresenceEvent, SIG_TAG, domain_sep,
 };
 pub use sign::{SignedObject, public_key, sign_id, signing_message, verify_id};

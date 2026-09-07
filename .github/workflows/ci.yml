@@ -47,6 +47,14 @@ jobs:
           cargo run -p vigil-core --example gen_vectors
           git diff --exit-code testdata/vectors/
 
+      - name: Export-pack fixtures are reproducible
+        # The same discipline for the spec/03-export-pack.md §6 fixtures: the
+        # generator is deterministic, and a checked-in .vgl file that the
+        # generator no longer produces is a spec change requiring an ADR.
+        run: |
+          cargo run -p vigil-ledger --example gen_packs
+          git diff --exit-code testdata/packs/
+
   wasm:
     name: wasm
     runs-on: ubuntu-latest

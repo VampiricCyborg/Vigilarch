@@ -47,6 +47,7 @@ pub mod attest;
 pub mod bracket;
 pub mod chain;
 pub mod dag;
+pub mod export;
 pub mod fork;
 pub mod memory;
 pub mod store;
@@ -58,6 +59,10 @@ pub use chain::{
     verify_all, verify_chain,
 };
 pub use dag::{AckFinding, AckFindingReason, Dag, DagNode};
+pub use export::{
+    CarriedBytes, CarriedObject, ExportError, PACK_MARKER, PackContents, PackParseError,
+    encode_pack, export_pack, parse_pack,
+};
 pub use fork::{Quarantine, detect_forks};
 pub use memory::MemoryStore;
 pub use store::{ChainHead, Store, StoreError, StoredAttestation, StoredObservation};

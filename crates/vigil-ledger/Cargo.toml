@@ -25,6 +25,8 @@ rusqlite = { workspace = true, optional = true }
 # verifies them, unlike the Store, which does not. Signing and verifying are
 # deterministic and need no RNG, so this builds for wasm32 too.
 ed25519-dalek.workspace = true
+hex.workspace = true
+serde_json.workspace = true
 
 # proptest pulls in wait-timeout, which does not build for wasm32. Gated to
 # native the same way vigil-core gates it, so `cargo test --target wasm32-*`

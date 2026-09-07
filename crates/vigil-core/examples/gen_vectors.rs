@@ -455,6 +455,157 @@ fn main() {
         seed: seed_a(),
     }
     .write(&dir);
+
+    // --- pack/worked-example ------------------------------------------------
+    // spec/03-export-pack.md §6.3, built by hand from the §2.2 envelope table
+    // and the §6.2 objects — no call to vigil-ledger's exporter. A@0 is the
+    // §10 genesis note reused; A@1 extends A's chain to the witnessed head;
+    // W's attestation U anchors A@1 (subject_seq 1), so per §3.2 the carried
+    // author segment is {A@0, A@1}. `fork_proofs` is omitted (§2.3): none held.
+    let key_w = key_b; // W uses seed_b, per §6.1
+    let org_key = SigningKey::from_bytes(&[0x11; 32])
+        .verifying_key()
+        .to_bytes();
+    let sk_w = SigningKey::from_bytes(&seed_b());
+
+    let a0_pre = genesis_note_preimage(&key_a, &site, "shoring on grid B4 is out of plumb");
+    let a0_id = blake3::hash(&a0_pre);
+    let a0_sig = sk_a
+        .sign(&domain_sep("vigilarch/1/sig", a0_id.as_bytes()))
+        .to_bytes();
+
+    let a1_pre = note_preimage(
+        &key_a,
+        &site,
+        a0_id.as_bytes(),
+        1,
+        1_700_000_100_000,
+        "grid B4 shoring re-checked, area now clear",
+    );
+    let a1_id = blake3::hash(&a1_pre);
+    let a1_sig = sk_a
+        .sign(&domain_sep("vigilarch/1/sig", a1_id.as_bytes()))
+        .to_bytes();
+
+    let nonce: [u8; 16] = core::array::from_fn(|i| 0xa0 ^ i as u8);
+    let u_pre = attestation_preimage(
+        &key_w,
+        &key_a,
+        a1_id.as_bytes(),
+        1,
+        1_700_000_100_000,
+        &nonce,
+    );
+    let u_id = blake3::hash(&u_pre);
+    let u_sig = sk_w
+        .sign(&domain_sep("vigilarch/1/sig", u_id.as_bytes()))
+        .to_bytes();
+
+    // Envelope map {1,2,3,4,6}; keys ascending, observations ascending by id
+    // (7431… < 89c0…), one attestation, one claim (id(A@0)).
+    let mut env = Vec::new();
+    map(5, &mut env);
+    uint(1, &mut env);
+    uint(WIRE_VERSION as u64, &mut env);
+    uint(2, &mut env);
+    bstr(&org_key, &mut env);
+    uint(3, &mut env);
+    array(2, &mut env);
+    array(2, &mut env);
+    bstr(&a0_pre, &mut env);
+    bstr(&a0_sig, &mut env);
+    array(2, &mut env);
+    bstr(&a1_pre, &mut env);
+    bstr(&a1_sig, &mut env);
+    uint(4, &mut env);
+    array(1, &mut env);
+    array(2, &mut env);
+    bstr(&u_pre, &mut env);
+    bstr(&u_sig, &mut env);
+    uint(6, &mut env);
+    array(1, &mut env);
+    bstr(a0_id.as_bytes(), &mut env);
+
+    let file = domain_sep("vigilarch/1/pack", &env);
+    let pack_json = format!(
+        "{{\n  \"name\": \"pack/worked-example\",\n  \"wire_version\": {ver},\n  \
+         \"marker\": \"vigilarch/1/pack\\u0000\",\n  \"spec\": \"spec/03-export-pack.md §6.3\",\
+         \n  \"components\": {{\n    \"org\": \"{org}\",\n    \"a0_id\": \"{a0}\",\
+         \n    \"a1_id\": \"{a1}\",\n    \"u_id\": \"{u}\",\n    \"claims\": [\"{a0}\"]\n  }},\
+         \n  \"envelope_cbor_hex\": \"{env}\",\n  \"file_hex\": \"{file}\",\n  \
+         \"file_len\": {flen}\n}}\n",
+        ver = WIRE_VERSION,
+        org = hex::encode(org_key),
+        a0 = hex::encode(a0_id.as_bytes()),
+        a1 = hex::encode(a1_id.as_bytes()),
+        u = hex::encode(u_id.as_bytes()),
+        env = hex::encode(&env),
+        file = hex::encode(&file),
+        flen = file.len(),
+    );
+    std::fs::write(dir.join("pack-worked-example.json"), pack_json).expect("write pack vector");
+    println!("{:<28} file_len={}", "pack/worked-example", file.len());
+}
+
+/// A non-genesis `Note` observation preimage, built by hand from the spec/01
+/// §6.1 table: `prev` is a 32-byte id, `seq` > 0, `geo` and `acks` absent.
+fn note_preimage(
+    key: &[u8; 32],
+    site: &[u8; 16],
+    prev: &[u8; 32],
+    seq: u64,
+    wall_ms: u64,
+    text: &str,
+) -> Vec<u8> {
+    let mut c = Vec::new();
+    map(6, &mut c);
+    uint(1, &mut c);
+    bstr(key, &mut c);
+    uint(2, &mut c);
+    bstr(site, &mut c);
+    uint(3, &mut c);
+    bstr(prev, &mut c);
+    uint(4, &mut c);
+    uint(seq, &mut c);
+    uint(5, &mut c);
+    array(2, &mut c);
+    uint(wall_ms, &mut c);
+    uint(0, &mut c);
+    uint(6, &mut c);
+    array(2, &mut c);
+    uint(0, &mut c);
+    map(1, &mut c);
+    uint(1, &mut c);
+    tstr(text, &mut c);
+    domain_sep("vigilarch/1/observation", &c)
+}
+
+/// An `Attestation` preimage, built by hand from the spec/01 §6.5 table.
+fn attestation_preimage(
+    witness: &[u8; 32],
+    subject: &[u8; 32],
+    head: &[u8; 32],
+    subject_seq: u64,
+    wall_ms: u64,
+    nonce: &[u8; 16],
+) -> Vec<u8> {
+    let mut c = Vec::new();
+    map(6, &mut c);
+    uint(1, &mut c);
+    bstr(witness, &mut c);
+    uint(2, &mut c);
+    bstr(subject, &mut c);
+    uint(3, &mut c);
+    bstr(head, &mut c);
+    uint(4, &mut c);
+    uint(subject_seq, &mut c);
+    uint(5, &mut c);
+    array(2, &mut c);
+    uint(wall_ms, &mut c);
+    uint(0, &mut c);
+    uint(6, &mut c);
+    bstr(nonce, &mut c);
+    domain_sep("vigilarch/1/attestation", &c)
 }
 
 /// The full domain-separated preimage of a genesis `Note` observation, built by
