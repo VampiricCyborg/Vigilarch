@@ -10,3 +10,7 @@ testdata/vectors/*.json -text
 
 # Same reasoning, for the scenario recordings that land with vigil-sim.
 testdata/scenarios/** -text
+
+# Same reasoning again: the export-pack fixtures (binary) and the expected-verdict
+# JSON that vigil-verify is cross-checked against are CI-regenerated and byte-compared.
+testdata/packs/** -text

@@ -235,8 +235,10 @@ removes what the claims do not need; it MUST NOT remove what would change a verd
 
 `vigil-verify <pack> <org-pubkey>` performs exactly these steps, in order, with its own
 code — not by calling `vigil-ledger` (`spec/02` §7). `vigil-verify` depends only on
-`vigil-core` and the verification path of `vigil-ledger`; it builds no database and opens
-no socket.
+`vigil-core`: its chain check, DAG construction and bracketing are a **second
+implementation** written from this document, not a call into the code that produced the
+pack, because a verifier that shares the exporter's traversal reproduces the exporter's
+bugs with total confidence (ADR-0005). It builds no database and opens no socket.
 
 1. **Envelope.** Check the file marker (`§2.1`). Decode the envelope under the `spec/01`
    §2.1 profile with the `spec/01` §8 decoder — total rejection on any violation, no
@@ -528,7 +530,11 @@ Mirroring `spec/01` §9 and `spec/02` §9: the evidence lands with or before the
 **Property tests:** pack assembly is deterministic (§2.3) — the same claims over the same
 held set produce a byte-identical file on two machines; `vigil-verify`'s recomputed
 bracket for a claim equals `vigil-ledger`'s `bracket()` over the same object set (the two
-independent traversals agree on honest input).
+independent traversals agree on honest input). Because `vigil-verify` may not link
+`vigil-ledger` (ADR-0005), the ledger's side of that equality is generated ahead of time
+by `cargo run -p vigil-ledger --example gen_pack_verdicts`, checked in under
+`testdata/packs/expected/`, and CI-diffed for reproducibility like the pack fixtures
+themselves; `vigil-verify`'s test then asserts its own traversal reproduces it.
 
 **Fuzz:** the envelope decoder is on the `spec/01` §8 attack surface — a pack is a file
 from an untrusted party — and every path from `pack_file` bytes to a verdict is fuzzed.

@@ -50,11 +50,13 @@ entanglement layer on top of it: attestation ingest, the attestation DAG, the br
 query, fork detection with self-verifying proofs, and quarantine. `vigil-sim` runs two
 scenarios over that ledger — a minimal attestation exchange and an equivocation scenario
 with a quarantine ablation — each from a seed, with a byte-identical transcript. The
-export pack is now specified (`spec/03-export-pack.md`, ADR-0004), with a hand-worked
-example and three distinct tamper verdicts, ahead of the `vigil-verify` implementation.
+export pack is specified (`spec/03-export-pack.md`, ADR-0004), with a hand-worked example
+and three distinct tamper verdicts, and `vigil-verify` implements the `spec/03` §5
+verification procedure — an independent second traversal that links only `vigil-core`,
+reproduces every bracket claim from the pack alone, and exits nonzero on any tamper.
 
-Still to come: `vigil-node`, the `vigil-verify` implementation, the rest of the seeded
-adversarial scenarios with their ablation runs, and the measured evaluation table.
+Still to come: `vigil-node`, the rest of the seeded adversarial scenarios with their
+ablation runs, and the measured evaluation table.
 
 This is a **public repository with a self-contained demo**, not a product. There are no
 customers, sites, hardware or users. Everything runs on one machine from a seed. The
@@ -120,7 +122,7 @@ below carries measured numbers. Development stops at that line.
 | 3 | Attestation ingest, DAG, bracketing/sealing queries, fork proofs, quarantine | done |
 | 4 | `vigil-sim` — seeded simulator over the *real* ledger | minimal + equivocation scenarios landed; grows with the adversarial suite |
 | 5 | `vigil-node --role edge\|hub\|mule` | not started |
-| 6 | Export pack + `vigil-verify` — the independent verifier | pack specified (`spec/03`, ADR-0004); `vigil-verify` not started |
+| 6 | Export pack + `vigil-verify` — the independent verifier | pack specified (`spec/03`, ADR-0004) and assembled; `vigil-verify` implements the `spec/03` §5 procedure against every fixture |
 | 7 | `spec/02-entanglement.md` and `spec/03-export-pack.md` (done, with worked detail), `spec/04-threat-model.md` (after M1, by design) | in progress |
 | 8 | Seeded scenarios, each paired with an ablation run | two scenarios (the equivocation one carries a quarantine ablation); the full seeded adversarial set is next |
 | 9 | Measured evaluation table and demo transcript | not started |
@@ -185,9 +187,11 @@ docs/             design document, reality brief, ADRs
 testdata/         golden wire vectors, seeded scenarios
 ```
 
-`vigil-verify` depends only on `vigil-core` and `vigil-ledger`'s verification path — no
-database, no network, no node. It must reproduce every ordering claim from the evidence
-pack and the organisation's public key alone.
+`vigil-verify` depends only on `vigil-core` — not `vigil-ledger`, not as a dependency and
+not as a dev-dependency — so its chain check, DAG construction and bracketing are a second
+implementation written from the spec, not a call into the code that built the pack. No
+database, no network, no node. It reproduces every ordering claim from the evidence pack
+and the organisation's public key alone, and exits nonzero on any tamper.
 
 The workspace still contains `vigil-sync`, `vigil-transport`, `vigil-insight` and
 `vigil-wasm` as empty scaffolding from the pre-cut scope. They build but implement

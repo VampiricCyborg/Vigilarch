@@ -12,8 +12,23 @@ path = "src/main.rs"
 
 # Deliberately minimal. This binary depends on vigil-core for the canonical
 # encoding and nothing else in the workspace — see the doc comment in
-# src/main.rs for why the absence of vigil-ledger here is the point.
+# src/lib.rs for why the absence of vigil-ledger here is the point. In
+# particular there is no path dependency on vigil-ledger anywhere, including in
+# dev-dependencies: the fixtures under testdata/packs/ are static files, and the
+# expected verdicts vigil-verify is checked against (testdata/packs/expected/)
+# are generated ahead of time by `vigil-ledger`'s own example, not by linking it
+# here.
 [dependencies]
 vigil-core.workspace = true
 anyhow.workspace = true
+thiserror.workspace = true
 hex.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+serde_json.workspace = true
+
+# proptest pulls in wait-timeout, which does not build for wasm32. Gated to
+# native the same way vigil-core and vigil-ledger gate it.
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+proptest.workspace = true

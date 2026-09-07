@@ -50,9 +50,14 @@ jobs:
       - name: Export-pack fixtures are reproducible
         # The same discipline for the spec/03-export-pack.md §6 fixtures: the
         # generator is deterministic, and a checked-in .vgl file that the
-        # generator no longer produces is a spec change requiring an ADR.
+        # generator no longer produces is a spec change requiring an ADR. The
+        # expected-verdict fixtures under testdata/packs/expected/ are the
+        # vigil-ledger side of the spec/03 §8 cross-check that vigil-verify's
+        # independent traversal is held against; a drift there is a bracket()
+        # behaviour change and must not pass silently either.
         run: |
           cargo run -p vigil-ledger --example gen_packs
+          cargo run -p vigil-ledger --example gen_pack_verdicts
           git diff --exit-code testdata/packs/
 
   wasm:

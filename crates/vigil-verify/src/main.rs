@@ -1,66 +1,74 @@
-//! # vigil-verify
+//! `vigil-verify <pack> <org-pubkey>` — the CLI wrapper around
+//! [`vigil_verify::verify`].
 //!
-//! An independent verifier. Given only an export pack and the organisation's
-//! public key, it reproduces every ordering claim the pack makes and exits
-//! nonzero if any of them fails to hold.
+//! The invocation matches `spec/03-export-pack.md` §5's own header. It reads the
+//! pack file, runs the §5 six-step procedure with `vigil-verify`'s own code
+//! (never `vigil-ledger`), prints the [`Report`](vigil_verify::Report), and
+//! exits:
 //!
-//! Milestone: **M8-lite**. See `claude.md` (scope) and `docs/VIGILARCH.md` §14 M8,
-//! whose acceptance criterion is precisely this binary.
-//!
-//! ## Why this crate exists
-//!
-//! Every other artifact in this repository asserts that the ledger is sound.
-//! This one demonstrates it, to someone who trusts none of the code that
-//! produced the pack. That makes it the highest-credibility thing the project
-//! ships: a regulator, an auditor, or a sceptical reader can run it against a
-//! pack they were handed and get a yes or no that does not depend on taking
-//! Vigilarch's word for anything.
-//!
-//! ## The independence rule
-//!
-//! This binary must depend on `vigil-core` for the canonical encoding and on
-//! nothing else in the workspace. In particular it must **not** link
-//! `vigil-ledger`.
-//!
-//! The reason is that a verifier which reuses the ledger's own traversal,
-//! sealing and fork-detection code cannot detect a bug in that code — it will
-//! reproduce the same wrong answer with great confidence and call it agreement.
-//! The verifier re-derives ordering from the attestation DAG in the pack using
-//! its own independent traversal. Sharing `vigil-core` is the deliberate
-//! exception, and it is not a weakening of the guarantee: architectural
-//! invariant #2 requires exactly one implementation of the canonical encoding,
-//! and the golden vectors in `testdata/` are what hold that implementation
-//! honest. Re-deriving the encoding here would create the second implementation
-//! that invariant exists to forbid.
-//!
-//! If you find yourself adding `vigil-ledger` to this crate's dependencies to
-//! avoid duplicating a traversal, stop: that duplication is the product.
-//!
-//! ## What it must check
-//!
-//! - Every object's content address recomputes from its canonical preimage.
-//!   The `id` in the pack is never trusted (`spec/01-wire-format.md` §3).
-//! - Every signature verifies against the claimed author key, and every author
-//!   key chains to the org key supplied on the command line.
-//! - Every per-node hash chain is unbroken: each entry's `prev` is the previous
-//!   entry's recomputed id, with no gaps in `seq`.
-//! - Every attestation in the DAG is well-formed and signed by its witness.
-//! - Every ordering claim the pack states is re-derived from that DAG
-//!   independently — and where the DAG does not prove an ordering, the verifier
-//!   reports **unwitnessed** rather than guessing. A verifier that overstates
-//!   what the evidence shows is worse than no verifier, because it launders an
-//!   unproven claim into an apparently independent confirmation.
-//! - Witness latency per record is reported honestly, including when it is
-//!   unbounded.
-//!
-//! ## Exit codes
-//!
-//! `0` every claim reproduced. `1` a claim failed to reproduce, or the pack is
-//! malformed. Nonzero is the load-bearing behaviour: this binary is meant to be
-//! run in someone else's CI against a pack we did not produce.
+//! - `0` — every claim reproduced from the pack's own evidence;
+//! - `1` — a claim failed to reproduce (an object failed its self-check, a chain
+//!   is `Violated`, an attestation anchors nothing, a fork proof convicts a key
+//!   the pack depends on, or a claim could not be bracketed) — the report names
+//!   which;
+//! - `2` — the pack is structurally malformed, is not wire version 1, or is
+//!   issued for a different organisation than the one asked about.
 
-fn main() {
-    println!(
-        "vigil-verify: scaffold only — see docs/VIGILARCH.md §14 M8 for the acceptance criterion"
-    );
+use std::process::ExitCode;
+
+use anyhow::{Context, bail};
+use vigil_core::PubKey;
+use vigil_verify::verify;
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(code) => code,
+        Err(e) => {
+            eprintln!("vigil-verify: {e:#}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn run() -> anyhow::Result<ExitCode> {
+    let mut args = std::env::args_os().skip(1);
+    let (Some(pack_arg), Some(org_arg), None) = (args.next(), args.next(), args.next()) else {
+        bail!(
+            "usage: vigil-verify <pack> <org-pubkey>\n\n\
+               <pack>        path to an export pack file (spec/03-export-pack.md)\n\
+               <org-pubkey>  the issuing organisation's Ed25519 public key, 64 hex chars"
+        );
+    };
+
+    let pack_path = std::path::PathBuf::from(&pack_arg);
+    let pack_bytes = std::fs::read(&pack_path)
+        .with_context(|| format!("reading pack file {}", pack_path.display()))?;
+
+    let org = parse_pubkey(&org_arg.to_string_lossy()).context("parsing <org-pubkey>")?;
+
+    match verify(&pack_bytes, org) {
+        Ok(report) => {
+            print!("{report}");
+            Ok(ExitCode::from(
+                u8::try_from(report.exit_code()).unwrap_or(1),
+            ))
+        }
+        Err(e) => {
+            // A structural rejection: the file is not a wire-version-1 pack for
+            // this organisation. Distinct exit code from a claim that failed to
+            // reproduce.
+            eprintln!("vigil-verify: pack rejected at spec/03 §5 step 1: {e}");
+            Ok(ExitCode::from(2))
+        }
+    }
+}
+
+fn parse_pubkey(s: &str) -> anyhow::Result<PubKey> {
+    let s = s.trim();
+    let bytes = hex::decode(s).context("<org-pubkey> is not valid hex")?;
+    let arr: [u8; 32] = bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("<org-pubkey> is {} bytes, expected 32", bytes.len()))?;
+    Ok(PubKey(arr))
 }
