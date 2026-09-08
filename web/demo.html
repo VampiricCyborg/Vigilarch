@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vigilarch — sealing, interactively</title>
+<meta name="description" content="Two disconnected nodes, one attestation exchange. The real vigil-ledger, compiled to WASM, deciding what is sealed and what is not.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap">
+<link rel="stylesheet" href="./base.css">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<!-- Shared site chrome. Purely additive: app.js queries this page by id and
+     touches nothing here. -->
+<header class="sitenav">
+  <div class="sitenav-inner">
+    <a class="mark" href="./index.html" aria-label="Vigilarch home">
+      <svg width="26" height="14" viewBox="0 0 26 14" fill="none" aria-hidden="true">
+        <path d="M1.5 1v12" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+        <path d="M3 7h20" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5" opacity=".6"/>
+        <path d="M24.5 1v12" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+      </svg>
+      <span class="wordmark">VIGILARCH</span>
+    </a>
+    <nav class="navlinks">
+      <a href="./index.html#how">How it works</a>
+      <a href="./index.html#invariants">Invariants</a>
+      <a href="./index.html#limits">Limits</a>
+      <a href="./index.html#faq">FAQ</a>
+    </nav>
+    <div class="navcta">
+      <a class="ghost" href="https://github.com/VampiricCyborg/Vigilarch">View on GitHub</a>
+      <a class="btn-primary" href="./index.html">&#8592; Back to overview</a>
+    </div>
+  </div>
+</header>
+
+<header class="strip">
+  <h1>Vigilarch <span class="sub">— sealing, interactively</span></h1>
+  <p>
+    Two nodes keep their own hash chains while disconnected. When they meet they co-sign
+    each other's current chain head, and that signature is what bounds a record's creation
+    time — <em>no later than the meeting</em>. A record with such an attestation over it is
+    <b class="k-sealed">sealed</b>; a record without one is
+    <b class="k-unwitnessed">unwitnessed</b>, and the honest answer there is a wide open
+    window, never a guess.
+  </p>
+  <p>
+    Append to either chain, exchange attestations, then click any entry to see its bracket.
+    Equivocate to watch one key sign two irreconcilable entries and get convicted — while the
+    withheld sibling stays unsealed. This runs the real <code>vigil-ledger</code> compiled to
+    <code>wasm32</code>: the same chain, DAG, bracket and fork-detection code
+    <code>vigil-sim</code> and <code>vigil-node</code> run natively.
+  </p>
+  <nav class="links">
+    <a href="https://github.com/VampiricCyborg/Vigilarch#readme">README</a>
+    <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/02-entanglement.md">spec/02 — entanglement</a>
+    <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/02-entanglement.md#5-the-bracketing-rule">§5 the bracketing rule</a>
+    <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/02-entanglement.md#8-non-guarantees">§8 non-guarantees</a>
+  </nav>
+</header>
+
+<section class="controls" aria-label="Actions">
+  <label class="field">
+    <span>observation text</span>
+    <input id="note-text" type="text" autocomplete="off" spellcheck="false"
+           placeholder="leave empty for a sample line">
+  </label>
+  <div class="buttons">
+    <button id="btn-append-a" type="button">Append to A</button>
+    <button id="btn-append-b" type="button">Append to B</button>
+    <button id="btn-exchange" type="button">Exchange attestation</button>
+    <span class="equiv">
+      <button id="btn-equivocate" type="button" class="danger">Equivocate on</button>
+      <select id="equiv-node" aria-label="node to equivocate on">
+        <option value="a">A</option>
+        <option value="b">B</option>
+      </select>
+    </span>
+    <button id="btn-reset" type="button" class="secondary">Reset</button>
+  </div>
+</section>
+
+<main>
+  <div class="nodes">
+    <section class="node" id="node-a" aria-label="Node A chain">
+      <h2>Node A <span class="pubkey" id="pubkey-a"></span></h2>
+      <div class="quarantine-banner" id="quarantine-a" hidden>
+        key quarantined — proven equivocation (spec/02 §6.4)
+      </div>
+      <ol class="chain" id="chain-a"></ol>
+      <p class="empty" id="empty-a">empty chain — no observations</p>
+    </section>
+
+    <section class="node" id="node-b" aria-label="Node B chain">
+      <h2>Node B <span class="pubkey" id="pubkey-b"></span></h2>
+      <div class="quarantine-banner" id="quarantine-b" hidden>
+        key quarantined — proven equivocation (spec/02 §6.4)
+      </div>
+      <ol class="chain" id="chain-b"></ol>
+      <p class="empty" id="empty-b">empty chain — no observations</p>
+    </section>
+  </div>
+
+  <aside class="detail" id="detail" aria-live="polite">
+    <h2>bracket</h2>
+    <div id="detail-body">
+      <p class="empty">Click an observation in either chain to bracket it.</p>
+    </div>
+  </aside>
+</main>
+
+<section class="attestations" aria-label="Attestations held">
+  <h2>attestations <span class="count" id="att-count"></span></h2>
+  <table id="att-table">
+    <thead>
+      <tr><th>id</th><th>witness</th><th>subject</th><th>subject_seq</th><th>subject_head</th></tr>
+    </thead>
+    <tbody id="att-body"></tbody>
+  </table>
+  <p class="empty" id="att-empty">none — the nodes have not met</p>
+</section>
+
+<section class="log-wrap" aria-label="Action log">
+  <h2>transcript</h2>
+  <pre class="log" id="log" tabindex="0"></pre>
+</section>
+
+<footer>
+  <p>
+    Every verdict on this page is computed by <code>vigil-ledger</code> in WebAssembly, not by
+    the JavaScript around it — invariant I2, one implementation of the ledger. The page holds
+    no chain, attestation or bracketing logic of its own.
+  </p>
+</footer>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

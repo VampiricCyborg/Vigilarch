@@ -1,0 +1,754 @@
+/* Vigilarch landing page.
+ *
+ * Register: an instrument, not a brochure. The dashboard next door is a terminal
+ * transcript rendered as a web page, and this page is the cover sheet on the same
+ * document — so the data voice stays monospace throughout and the only display
+ * face is Archivo, set wide and heavy, in the manner of the signage that hangs in
+ * the kind of place this ledger is for.
+ *
+ * Two structural ideas carry the identity, and both mean something:
+ *
+ *   1. The bracketed span — a solid cap, a rule, a solid cap — is the shape of a
+ *      bounded window, which is the one thing this whole project is about. It is
+ *      the logo mark and it is the rule under the headline. An OPEN edge is
+ *      always dashed and always fades. The two must never look alike.
+ *   2. Every section opens with a monospace eyebrow carrying a real citation.
+ *      A claim on this page can be checked against a file in this repository, and
+ *      the page says which one without being asked.
+ *
+ * Colour discipline, inherited from base.css: --sealed / --unwitnessed /
+ * --disputed encode state and are never spent on emphasis or hierarchy.
+ * --accent is the structural colour — links, focus, the one filled button — so
+ * "clickable" can never be misread as "sealed".
+ */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 13.5px/1.7 var(--mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--accent); color: var(--bg); }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+code {
+  font-family: var(--mono);
+  color: var(--ink);
+  background: var(--panel-2);
+  padding: 0 .28em;
+  border-radius: 2px;
+}
+
+/* --- shared measure and band rhythm --------------------------------------- */
+
+.measure {
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+.measure.narrow { max-width: 860px; }
+
+.band { border-top: 1px solid var(--hair); padding: 5.5rem 0; }
+.band.alt { background: var(--bg-deep); }
+
+/* Type roles ---------------------------------------------------------------
+ * display  Archivo, wide and heavy — headlines and the wordmark only
+ * mono     the system stack — everything with data in it, which is most of it */
+
+h1, h2, h3, .stepno, .wordmark {
+  font-family: var(--display);
+  color: var(--ink-strong);
+  text-wrap: balance;
+}
+
+.eyebrow {
+  margin: 0 0 1.1rem;
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.band-h {
+  margin: 0;
+  font-size: clamp(1.65rem, 3.1vw, 2.35rem);
+  font-weight: 700;
+  font-stretch: 110%;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+.band-h em { font-style: normal; color: var(--accent); }
+
+.band-lede {
+  margin: 1.1rem 0 0;
+  max-width: 68ch;
+  color: var(--ink-dim);
+}
+
+/* A citation is a first-class element here, not a footnote: it is what makes a
+ * claim on this page checkable. */
+.cite {
+  display: block;
+  margin-top: .5rem;
+  font-size: 10.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+p.cite { margin: .75rem 0 0; }
+
+.k-sealed { color: var(--sealed); }
+.k-unwit  { color: var(--unwitnessed); }
+
+/* --- ticker ---------------------------------------------------------------- */
+/* At rest — no JS, or reduced motion — the badges simply wrap and sit still.
+ * The scrolling version only exists once landing.js has duplicated the track. */
+
+.ticker {
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
+  background: var(--bg-deep);
+  overflow: hidden;
+}
+
+.ticker-track { display: flex; flex-wrap: wrap; }
+
+.ticker-track.is-animated {
+  flex-wrap: nowrap;
+  width: max-content;
+  animation: marquee 72s linear infinite;
+}
+.ticker:hover .ticker-track.is-animated,
+.ticker:focus-within .ticker-track.is-animated { animation-play-state: paused; }
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.tick {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .6rem 1.35rem;
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  border-right: 1px solid var(--hair);
+}
+.tick b { color: var(--ink-strong); font-weight: 600; }
+/* PASS is a verdict, so it is allowed the verdict colour. */
+.tick-ok b { color: var(--sealed); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track.is-animated { animation: none; flex-wrap: wrap; width: auto; }
+}
+
+/* --- hero ------------------------------------------------------------------ */
+
+.hero {
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+  padding: 5rem 1.5rem 4.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr);
+  gap: 3.5rem;
+  align-items: start;
+}
+
+.hero-copy h1 {
+  margin: 0;
+  font-size: clamp(2.6rem, 6.2vw, 4.3rem);
+  font-weight: 800;
+  font-stretch: 114%;
+  line-height: .96;
+  letter-spacing: -0.035em;
+}
+
+/* The bracketed span: a bounded window, drawn under the claim it belongs to.
+ * This is the page's one flourish and it is the project's own shape. */
+.hero-copy h1::after {
+  content: "";
+  display: block;
+  width: 156px;
+  height: 13px;
+  margin-top: 1.35rem;
+  border-top: 1px solid var(--accent);
+  border-left: 3px solid var(--accent);
+  border-right: 3px solid var(--accent);
+  opacity: .8;
+}
+
+.deck {
+  margin: 1.6rem 0 0;
+  max-width: 56ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.deck em { font-style: normal; color: var(--ink-strong); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+.subdeck {
+  margin: 1.1rem 0 0;
+  max-width: 62ch;
+  color: var(--ink-dim);
+}
+.subdeck b { color: var(--ink-strong); }
+
+.cta-row { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
+
+.btn-lg { padding: .7rem 1.2rem; font-size: 13px; }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink-dim);
+  background: transparent;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-ghost:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+.hero-foot {
+  margin: 2.2rem 0 0;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--hair);
+  max-width: 60ch;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* --- the live card --------------------------------------------------------- */
+
+.livecard {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.lc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .6rem .9rem;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--rule);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.lc-live { display: inline-flex; align-items: center; gap: .5rem; min-width: 0; color: var(--ink-dim); }
+.lc-target { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-live .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ink-faint);
+  flex: none;
+}
+/* The dot is page status — did the module answer — so it takes the structural
+ * accent, not a ledger-state colour. */
+.lc-live[data-state="live"] .dot { background: var(--accent); animation: blip 2.6s ease-in-out infinite; }
+.lc-live[data-state="live"] { color: var(--accent); }
+.lc-live[data-state="error"] .dot { background: var(--disputed); }
+.lc-live[data-state="error"] { color: var(--disputed); }
+
+@keyframes blip {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-bg); }
+  50%      { box-shadow: 0 0 0 5px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lc-live[data-state="live"] .dot { animation: none; }
+}
+
+.lc-body { padding: .95rem 1rem 1.1rem; }
+.lc-boot { margin: 0; color: var(--ink-faint); font-size: 12px; }
+.lc-err { margin: .8rem 0 0; color: var(--disputed); font-size: 11.5px; word-break: break-word; }
+
+/* the five calls, and what each returned */
+.lc-log { display: grid; gap: .18rem; font-size: 11.5px; }
+.lc-line { display: grid; grid-template-columns: 10.5rem minmax(0, 1fr); gap: .75rem; }
+.lc-line .call { color: var(--ink-strong); }
+.lc-line .call::before { content: "› "; color: var(--ink-faint); }
+.lc-line .res { color: var(--ink-dim); word-break: break-word; }
+
+.lc-check {
+  margin: .85rem 0 0;
+  padding: .45rem .6rem;
+  border-left: 2px solid var(--ink-faint);
+  background: var(--panel-2);
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.lc-check.ok  { border-left-color: var(--sealed); }
+.lc-check.bad { border-left-color: var(--disputed); color: var(--disputed); }
+
+/* verdict chips — these DO carry ledger state, which is what they are for */
+.lc-chips { display: grid; gap: .4rem; margin-top: 1rem; }
+
+.lc-chip {
+  display: grid;
+  grid-template-columns: .9rem max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: .45rem;
+  min-width: 0;
+  padding: .45rem .6rem;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-left-width: 3px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.lc-chip .l { letter-spacing: .05em; white-space: nowrap; }
+.lc-chip .w {
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lc-chip:hover { border-top-color: var(--ink-faint); border-right-color: var(--ink-faint); border-bottom-color: var(--ink-faint); }
+
+.lc-chip.v-sealed      { border-left-color: var(--sealed); }
+.lc-chip.v-unwitnessed { border-left-color: var(--unwitnessed); }
+.lc-chip.v-disputed    { border-left-color: var(--disputed); }
+
+.lc-chip[aria-pressed="true"].v-sealed      { color: var(--sealed);      background: var(--sealed-bg); }
+.lc-chip[aria-pressed="true"].v-unwitnessed { color: var(--unwitnessed); background: var(--unwit-bg); }
+.lc-chip[aria-pressed="true"].v-disputed    { color: var(--disputed);    background: var(--disputed-bg); }
+.lc-chip[aria-pressed="true"] .w { color: inherit; opacity: .8; }
+
+.lc-panel { margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--rule); }
+.lc-call { margin: 0; font-size: 11.5px; color: var(--ink-strong); word-break: break-all; }
+.lc-when { margin: .3rem 0 .8rem; font-size: 11px; color: var(--ink-faint); }
+
+.lc-json {
+  margin: 0;
+  padding: .75rem .85rem;
+  background: var(--bg-deep);
+  border: 1px solid var(--hair);
+  border-radius: 3px;
+  overflow-x: auto;
+  font: 11.5px/1.55 var(--mono);
+  color: var(--ink-dim);
+  tab-size: 2;
+}
+.lc-json code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lc-read {
+  margin: .9rem 0 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+
+.lc-foot {
+  padding: .8rem 1rem .9rem;
+  border-top: 1px solid var(--rule);
+  background: var(--panel-2);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+
+/* --- the unwitnessed window, compact --------------------------------------- */
+/* Bounded edges are solid caps. Open edges are dashed and the fill fades out
+ * towards them, so "unbounded" cannot read as a tidy interval. */
+
+.lw { margin-top: 1rem; }
+.lw-h { margin: 0 0 .4rem; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); }
+
+.lw-bar { display: flex; align-items: stretch; height: 22px; }
+.lw-cap { width: 9px; flex: none; border-top: 2px solid; border-bottom: 2px solid; }
+.lw-cap.bounded { border-color: var(--sealed); }
+.lw-cap.open    { border-color: var(--unwitnessed); }
+.lw-cap.left.bounded  { border-left: 4px solid var(--sealed); }
+.lw-cap.right.bounded { border-right: 4px solid var(--sealed); }
+.lw-cap.left.open     { border-left: 2px dashed var(--unwitnessed); }
+.lw-cap.right.open    { border-right: 2px dashed var(--unwitnessed); }
+
+.lw-track {
+  flex: 1;
+  min-width: 0;
+  border-top: 2px solid var(--ink-faint);
+  border-bottom: 2px solid var(--ink-faint);
+  background: var(--panel-2);
+}
+.lw-bar.open-left  .lw-track { background: linear-gradient(90deg, transparent, var(--unwit-bg) 70%); }
+.lw-bar.open-right .lw-track { background: linear-gradient(270deg, transparent, var(--unwit-bg) 70%); }
+.lw-bar.open-left.open-right .lw-track {
+  background: linear-gradient(90deg, transparent, var(--unwit-bg) 45%, var(--unwit-bg) 55%, transparent);
+}
+
+.lw-edges { display: flex; justify-content: space-between; gap: 1rem; margin-top: .3rem; font-size: 10.5px; }
+.lw-edge { max-width: 48%; word-break: break-all; }
+.lw-edge.right { text-align: right; }
+.lw-edge .k { display: block; text-transform: uppercase; letter-spacing: .06em; }
+.lw-edge.bounded .k { color: var(--sealed); }
+.lw-edge.open    .k { color: var(--unwitnessed); }
+.lw-edge .v { color: var(--ink-dim); }
+
+/* --- stat strip ------------------------------------------------------------ */
+
+.stats { border-top: 1px solid var(--hair); background: var(--bg-deep); padding: 3.2rem 0; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  background: var(--hair);
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  padding: 1.3rem 1.25rem 1.4rem;
+  background: var(--bg-deep);
+}
+.stat .num {
+  font-family: var(--display);
+  font-size: clamp(2rem, 4vw, 2.9rem);
+  font-weight: 700;
+  font-stretch: 112%;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+}
+.stat .lbl { font-size: 11px; letter-spacing: .04em; color: var(--ink-faint); }
+
+.stats-cap {
+  margin: 1.2rem 0 0;
+  max-width: 78ch;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.stats-cap b { color: var(--ink-dim); }
+
+/* --- how it works ---------------------------------------------------------- */
+/* Numbered because these four moves genuinely are a sequence: each provably
+ * precedes the next. The vertical rule through the number column is the chain. */
+
+.steps { position: relative; list-style: none; margin: 2.6rem 0 0; padding: 0; }
+
+.steps::before {
+  content: "";
+  position: absolute;
+  left: 2.25rem;
+  top: 2.4rem;
+  bottom: 2.4rem;
+  width: 1px;
+  background: var(--hair);
+}
+
+.steps li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 1.75rem;
+  padding: 1.8rem 0;
+  border-top: 1px solid var(--hair);
+}
+.steps li:last-child { border-bottom: 1px solid var(--hair); }
+
+.stepno {
+  position: relative;
+  z-index: 1;
+  align-self: start;
+  width: 4.5rem;
+  padding: .1rem 0;
+  text-align: center;
+  background: var(--bg);
+  font-size: 1.9rem;
+  font-weight: 700;
+  font-stretch: 112%;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.step-body h3 {
+  margin: 0 0 .55rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-stretch: 108%;
+  letter-spacing: -0.01em;
+}
+.step-body p { margin: 0; max-width: 74ch; color: var(--ink-dim); }
+.step-body b { color: var(--ink); }
+
+/* --- card grids ------------------------------------------------------------ */
+
+.grid-6 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 1rem;
+  margin-top: 2.6rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  padding: 1.25rem 1.3rem 1.35rem;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+.card h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  font-stretch: 106%;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+.card p { margin: 0; color: var(--ink-dim); font-size: 12.5px; }
+.card b { color: var(--ink); }
+
+.inv-id {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--ink-faint);
+}
+
+.chip {
+  align-self: flex-start;
+  margin-top: auto;
+  padding-top: .7rem;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.chip-on  { color: var(--ink-faint); }
+.chip-off { color: var(--unwitnessed); }
+
+/* The limits band is given the same weight as the invariants band on purpose —
+ * it is half the claim, not small print. */
+.limits .card { border-style: dashed; }
+.limits .card h3 { color: var(--ink-strong); }
+
+.novelty {
+  margin: 1.8rem 0 0;
+  padding: 1.15rem 1.3rem;
+  max-width: none;
+  background: var(--panel-2);
+  border-left: 3px solid var(--ink-faint);
+  color: var(--ink-dim);
+  font-size: 12.5px;
+}
+.novelty b { color: var(--ink-strong); }
+
+/* --- verification checklist ------------------------------------------------ */
+/* The tick is --accent because "checked" is structural, not a ledger verdict.
+ * The open row is --unwitnessed because in this project that colour means
+ * exactly "not covered", which is what an open gap is. */
+
+.checklist { list-style: none; margin: 2.4rem 0 0; padding: 0; }
+
+.checklist li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 15rem);
+  gap: 0 1.1rem;
+  align-items: start;
+  padding: 1.05rem 0;
+  border-top: 1px solid var(--hair);
+}
+.checklist li:last-child { border-bottom: 1px solid var(--hair); }
+
+.checklist li::before {
+  content: "✓";
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.checklist li.open::before { content: "○"; color: var(--unwitnessed); }
+.checklist li.open .ck-body b { color: var(--unwitnessed); }
+
+.ck-body { color: var(--ink-dim); font-size: 12.5px; }
+.ck-body b { color: var(--ink-strong); font-weight: 600; }
+
+.src {
+  font-size: 10.5px;
+  letter-spacing: .05em;
+  color: var(--ink-faint);
+  text-align: right;
+  word-break: break-word;
+}
+.src code { background: none; padding: 0; color: inherit; }
+
+/* --- pipeline code block ---------------------------------------------------- */
+
+.codeblock {
+  margin-top: 2.2rem;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.codeblock pre { margin: 0; padding: 1.25rem 1.35rem; }
+.codeblock code {
+  display: block;
+  background: none;
+  padding: 0;
+  white-space: pre;
+  font: 12.5px/1.8 var(--mono);
+  color: var(--ink-dim);
+}
+.c-c { color: var(--ink-faint); }
+.c-s { color: var(--ink-strong); }
+/* VIOLATED is a chain verdict, so it takes the verdict colour. */
+.c-b { color: var(--disputed); }
+
+/* --- FAQ -------------------------------------------------------------------- */
+
+.faq { border-top: 1px solid var(--hair); }
+.faq:last-of-type { border-bottom: 1px solid var(--hair); }
+
+.faq summary {
+  position: relative;
+  list-style: none;
+  cursor: pointer;
+  padding: 1.15rem 2.75rem 1.15rem 0;
+  font-family: var(--display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  font-stretch: 106%;
+  line-height: 1.4;
+  color: var(--ink-strong);
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+";
+  position: absolute;
+  right: .3rem;
+  top: 1.05rem;
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--ink-faint);
+}
+.faq[open] summary::after { content: "–"; color: var(--accent); }
+.faq summary:hover { color: var(--accent); }
+.faq summary code { font-size: .85em; }
+
+.faq-body { padding: 0 2.75rem 1.4rem 0; max-width: 74ch; }
+.faq-body p { margin: 0 0 .8rem; color: var(--ink-dim); }
+.faq-body p:last-child { margin-bottom: 0; }
+.faq-body b { color: var(--ink); }
+
+/* --- closing ---------------------------------------------------------------- */
+
+.closing {
+  border-top: 1px solid var(--hair);
+  padding: 5.5rem 0;
+  text-align: center;
+}
+.closing-h {
+  margin: 0;
+  font-size: clamp(2.1rem, 5vw, 3.4rem);
+  font-weight: 800;
+  font-stretch: 114%;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.closing-p {
+  margin: 1.4rem auto 0;
+  max-width: 66ch;
+  color: var(--ink-dim);
+}
+.closing .cta-row { justify-content: center; }
+
+/* --- footer ----------------------------------------------------------------- */
+
+.sitefoot { border-top: 1px solid var(--hair); background: var(--bg-deep); padding: 3.5rem 0 2.5rem; }
+
+.foot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.foot-brand p {
+  margin: 1rem 0 0;
+  max-width: 46ch;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.foot-col { display: flex; flex-direction: column; gap: .55rem; }
+.foot-col h3 {
+  margin: 0 0 .3rem;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.foot-col a { color: var(--ink-dim); text-decoration: none; font-size: 12px; }
+.foot-col a:hover { color: var(--accent); }
+.foot-col a span { color: var(--ink-faint); }
+.foot-col a:hover span { color: var(--ink-faint); }
+
+.foot-note {
+  margin-top: 2.8rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--hair);
+}
+.foot-note p { margin: 0 0 .8rem; max-width: 84ch; font-size: 11.5px; color: var(--ink-faint); }
+.foot-note p:last-child { margin-bottom: 0; }
+.foot-note b { color: var(--ink-dim); }
+
+/* --- narrow ----------------------------------------------------------------- */
+
+@media (max-width: 1000px) {
+  .hero { grid-template-columns: 1fr; gap: 2.5rem; padding-top: 3.5rem; }
+  .foot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+  .foot-brand { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+  .band { padding: 3.75rem 0; }
+  .checklist li { grid-template-columns: 1.5rem minmax(0, 1fr); }
+  .src { grid-column: 2; text-align: left; margin-top: .4rem; }
+  .steps li { grid-template-columns: 3rem minmax(0, 1fr); gap: 1rem; }
+  .steps::before { left: 1.5rem; }
+  .stepno { width: 3rem; font-size: 1.5rem; }
+  .lc-line { grid-template-columns: 1fr; gap: 0; }
+  .lc-line .res { padding-left: 1rem; }
+}
+
+@media (max-width: 520px) {
+  .foot-grid { grid-template-columns: 1fr; }
+}

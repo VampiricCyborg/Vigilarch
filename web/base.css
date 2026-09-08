@@ -1,0 +1,161 @@
+/* Vigilarch — shared tokens and site chrome.
+ *
+ * Linked by both pages: index.html (the landing page) and demo.html (the
+ * interactive dashboard). The dashboard's palette came first and is the
+ * project's system; this file is that palette lifted out of style.css so the
+ * landing page cannot drift from it, plus the few tokens the landing page adds
+ * and the header bar the two pages share.
+ *
+ * Two rules the state colours are held to:
+ *
+ *   1. --sealed / --unwitnessed / --disputed encode STATE and nothing else: a
+ *      ledger verdict, or in two places the page's own (a failed module load is
+ *      --disputed, an open gap in the checklist is --unwitnessed, because that
+ *      colour already means "not covered" here). They are never spent on
+ *      decoration, emphasis or hierarchy.
+ *   2. --accent is the structural colour — links, focus rings, interactive
+ *      affordances. It is deliberately not one of the three above, so that
+ *      "this is clickable" can never be misread as "this is sealed".
+ *
+ * Dark is the default because the dashboard is a transcript; the light palette
+ * is a full second design, not an inversion. */
+
+:root {
+  /* --- ground and structure ------------------------------------------- */
+  --bg:        #0e1116;   /* the page ground, both pages */
+  --bg-deep:   #090c11;   /* landing bands that sit behind the measure */
+  --panel:     #151a21;
+  --panel-2:   #1b212a;
+  --rule:      #2a323d;   /* a stated border */
+  --hair:      #1c222b;   /* a structural hairline: band separators, grid */
+
+  /* --- ink -------------------------------------------------------------- */
+  --ink:        #ced5df;
+  --ink-strong: #eef2f7;  /* display type only */
+  --ink-dim:    #8b96a5;
+  --ink-faint:  #5c6674;
+
+  /* --- ledger state ----------------------------------------------------- */
+  --sealed:      #3fb950;
+  --sealed-bg:   #10331a;
+  --unwitnessed: #d9a233;
+  --unwit-bg:    #33280c;
+  --disputed:    #f06a5f;
+  --disputed-bg: #3a1512;
+
+  /* --- structural accent ------------------------------------------------ */
+  --accent:      #6aa9e0;
+  --accent-bg:   rgba(106, 169, 224, 0.11);
+
+  /* --- type ------------------------------------------------------------- */
+  --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
+          "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --display: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:        #f7f6f3;
+    --bg-deep:   #efece6;
+    --panel:     #ffffff;
+    --panel-2:   #f0eee9;
+    --rule:      #d6d2ca;
+    --hair:      #e3dfd8;
+
+    --ink:        #1c1c1c;
+    --ink-strong: #0b0b0b;
+    --ink-dim:    #5d5a54;
+    --ink-faint:  #8b877f;
+
+    --sealed:      #14733a;
+    --sealed-bg:   #e2f2e6;
+    --unwitnessed: #8a5d00;
+    --unwit-bg:    #faefd6;
+    --disputed:    #b32318;
+    --disputed-bg: #fbe3e0;
+
+    --accent:      #14568f;
+    --accent-bg:   rgba(20, 86, 143, 0.09);
+  }
+}
+
+/* ===========================================================================
+ * Site chrome — the header bar both pages carry, so moving between the
+ * landing page and the dashboard does not feel like moving between two sites.
+ * =========================================================================== */
+
+.sitenav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0 1.25rem;
+  height: 52px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--hair);
+  font: 12px/1 var(--mono);
+}
+
+/* No color-mix support: fall back to the opaque ground rather than to text
+ * sliding under a transparent bar. */
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+  .sitenav { background: var(--bg); }
+}
+
+.sitenav-inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+}
+
+/* The mark is the window glyph: two bounded caps with a span between them —
+ * the one shape this whole project is about. */
+.mark { display: flex; align-items: center; gap: .5rem; text-decoration: none; color: var(--ink-strong); }
+.mark svg { display: block; overflow: visible; }
+.mark .wordmark {
+  font-family: var(--display);
+  font-weight: 700;
+  font-stretch: 114%;
+  font-size: 14px;
+  letter-spacing: .06em;
+}
+
+.navlinks { display: flex; gap: 1.25rem; margin-left: 1rem; }
+.navlinks a { color: var(--ink-dim); text-decoration: none; }
+.navlinks a:hover { color: var(--ink); }
+
+.navcta { display: flex; align-items: center; gap: .9rem; margin-left: auto; }
+.navcta .ghost { color: var(--ink-dim); text-decoration: none; white-space: nowrap; }
+.navcta .ghost:hover { color: var(--ink); }
+
+/* The one filled control on either page. It is --accent, never a state colour:
+ * "clickable" must not be able to read as "sealed". */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .85rem;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+
+a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (max-width: 860px) {
+  .navlinks { display: none; }
+}

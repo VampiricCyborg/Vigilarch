@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Build the WebAssembly module this page imports.
 #
-# The page itself has no build step — index.html, style.css and app.js are served
-# as written. Only the Rust needs compiling, and it produces a bundler-free ES
-# module (`--target web`) that app.js imports with a plain `import` statement.
+# The pages themselves have no build step — index.html (landing), demo.html
+# (dashboard) and their CSS and JS are served as written. Only the Rust needs
+# compiling, and it produces a bundler-free ES module (`--target web`) that both
+# app.js and landing.js import.
 #
 #   ./web/build.sh          # from the repository root, or from web/
 #
@@ -31,4 +32,6 @@ wasm-bindgen \
 
 echo
 echo "built web/pkg/. Serve the directory over HTTP — file:// cannot load a module:"
-echo "  python -m http.server -d web 8080   # then open http://localhost:8080/"
+echo "  python -m http.server -d web 8080"
+echo "    http://localhost:8080/            landing page"
+echo "    http://localhost:8080/demo.html   interactive dashboard"

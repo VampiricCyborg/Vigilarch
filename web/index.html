@@ -3,111 +3,680 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vigilarch — sealing, interactively</title>
-<meta name="description" content="Two disconnected nodes, one attestation exchange. The real vigil-ledger, compiled to WASM, deciding what is sealed and what is not.">
-<link rel="stylesheet" href="./style.css">
+<title>Vigilarch</title>
+<meta name="description" content="An append-only incident ledger that can defend when a record was created, with no server, no consensus, and no trusted clock.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap">
+<link rel="stylesheet" href="./base.css">
+<link rel="stylesheet" href="./landing.css">
 </head>
 <body>
 
-<header class="strip">
-  <h1>Vigilarch <span class="sub">— sealing, interactively</span></h1>
-  <p>
-    Two nodes keep their own hash chains while disconnected. When they meet they co-sign
-    each other's current chain head, and that signature is what bounds a record's creation
-    time — <em>no later than the meeting</em>. A record with such an attestation over it is
-    <b class="k-sealed">sealed</b>; a record without one is
-    <b class="k-unwitnessed">unwitnessed</b>, and the honest answer there is a wide open
-    window, never a guess.
-  </p>
-  <p>
-    Append to either chain, exchange attestations, then click any entry to see its bracket.
-    Equivocate to watch one key sign two irreconcilable entries and get convicted — while the
-    withheld sibling stays unsealed. This runs the real <code>vigil-ledger</code> compiled to
-    <code>wasm32</code>: the same chain, DAG, bracket and fork-detection code
-    <code>vigil-sim</code> and <code>vigil-node</code> run natively.
-  </p>
-  <nav class="links">
-    <a href="https://github.com/VampiricCyborg/Vigilarch#readme">README</a>
-    <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/02-entanglement.md">spec/02 — entanglement</a>
-    <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/02-entanglement.md#5-the-bracketing-rule">§5 the bracketing rule</a>
-    <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/02-entanglement.md#8-non-guarantees">§8 non-guarantees</a>
-  </nav>
+<!-- ==========================================================================
+     SOURCING RULE FOR THIS FILE
+     Every number, badge, checklist item and FAQ answer below is quoted or
+     tightened from a file in this repository. Each block carries an HTML comment
+     naming its source so a reader can check it. Nothing here is estimated,
+     rounded, or written to sound better than the source. Where the source says a
+     thing is NOT done — the licence, the mule-relay gap, the absence of a
+     coverage-guided fuzzer — this page says so too.
+     ========================================================================== -->
+
+<header class="sitenav">
+  <div class="sitenav-inner">
+    <a class="mark" href="./index.html" aria-label="Vigilarch home">
+      <svg width="26" height="14" viewBox="0 0 26 14" fill="none" aria-hidden="true">
+        <path d="M1.5 1v12" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+        <path d="M3 7h20" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5" opacity=".6"/>
+        <path d="M24.5 1v12" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+      </svg>
+      <span class="wordmark">VIGILARCH</span>
+    </a>
+    <nav class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#invariants">Invariants</a>
+      <a href="#limits">Limits</a>
+      <a href="#verification">Verification</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="navcta">
+      <a class="ghost" href="https://github.com/VampiricCyborg/Vigilarch">View on GitHub</a>
+      <a class="btn-primary" href="./demo.html">Run the demo</a>
+    </div>
+  </div>
 </header>
 
-<section class="controls" aria-label="Actions">
-  <label class="field">
-    <span>observation text</span>
-    <input id="note-text" type="text" autocomplete="off" spellcheck="false"
-           placeholder="leave empty for a sample line">
-  </label>
-  <div class="buttons">
-    <button id="btn-append-a" type="button">Append to A</button>
-    <button id="btn-append-b" type="button">Append to B</button>
-    <button id="btn-exchange" type="button">Exchange attestation</button>
-    <span class="equiv">
-      <button id="btn-equivocate" type="button" class="danger">Equivocate on</button>
-      <select id="equiv-node" aria-label="node to equivocate on">
-        <option value="a">A</option>
-        <option value="b">B</option>
-      </select>
-    </span>
-    <button id="btn-reset" type="button" class="secondary">Reset</button>
+<!-- ==========================================================================
+     TICKER — status badges, each traceable to one line in the repository.
+       CI gates ................ .github/workflows/ci.yml (jobs `native`, `wasm`)
+       seeds, scenarios, runs .. README.md "Measured results" (verbatim stdout)
+       149 / 13 tests .......... README.md "What exists today", closing paragraph
+       6 golden vectors ........ crates/vigil-core/tests/vectors.rs, const VECTORS
+       4 specs ................. spec/01..04
+       5 ADRs .................. docs/adr/0001..0005
+       515 bytes / exit 1 ...... README.md Demo transcript, steps 3 and 5
+     ========================================================================== -->
+<div class="ticker" aria-label="Repository status">
+  <div class="ticker-track">
+    <span class="tick"><b>CI</b> fmt &middot; clippy -D warnings &middot; test</span>
+    <span class="tick"><b>1000</b> seeds &times; <b>3</b> scenarios</span>
+    <span class="tick tick-ok"><b>3000 / 3000</b> runs PASS</span>
+    <span class="tick"><b>0</b> failing seeds</span>
+    <span class="tick"><b>149</b> tests native</span>
+    <span class="tick"><b>13</b> re-run under wasm32-wasip1</span>
+    <span class="tick">wasm32-unknown-unknown compiled</span>
+    <span class="tick"><b>6</b> golden vectors</span>
+    <span class="tick"><b>4</b> specs &middot; <b>5</b> ADRs</span>
+    <span class="tick">evidence pack <b>515</b> bytes</span>
+    <span class="tick">tamper &rarr; exit <b>1</b></span>
+    <span class="tick">vigil-verify links only vigil-core</span>
   </div>
-</section>
+</div>
 
 <main>
-  <div class="nodes">
-    <section class="node" id="node-a" aria-label="Node A chain">
-      <h2>Node A <span class="pubkey" id="pubkey-a"></span></h2>
-      <div class="quarantine-banner" id="quarantine-a" hidden>
-        key quarantined — proven equivocation (spec/02 §6.4)
-      </div>
-      <ol class="chain" id="chain-a"></ol>
-      <p class="empty" id="empty-a">empty chain — no observations</p>
-    </section>
 
-    <section class="node" id="node-b" aria-label="Node B chain">
-      <h2>Node B <span class="pubkey" id="pubkey-b"></span></h2>
-      <div class="quarantine-banner" id="quarantine-b" hidden>
-        key quarantined — proven equivocation (spec/02 §6.4)
-      </div>
-      <ol class="chain" id="chain-b"></ol>
-      <p class="empty" id="empty-b">empty chain — no observations</p>
-    </section>
+<!-- ==========================================================================
+     HERO
+     Headline: "A meeting is the proof of time." — the repository's own wording,
+     the heading of demo.sh STEP 1 (demo.sh; README Demo transcript). Checked
+     against spec/02 §5.2 before use: the sealing theorem grants an UPPER bound
+     from a meeting and nothing more, so the headline is only accurate because
+     the one-sidedness is stated in the sentence directly beneath it, which it
+     is. Madhav — if you would rather the headline itself carried the one-sided
+     bound, say so and I will swap it; I judged the deck sufficient because it is
+     the very next line and the hero card demonstrates it live.
+     Deck sentence: README.md lines 3–4, verbatim.
+     ========================================================================== -->
+<section class="hero" id="top">
+  <div class="hero-copy">
+    <p class="eyebrow">append-only incident ledger &middot; no server &middot; no consensus &middot; no trusted clock</p>
+    <h1>A meeting is<br>the proof of time.</h1>
+    <p class="deck">
+      An append-only incident ledger that can defend <em>when</em> a record was created,
+      with no server, no consensus, and no trusted clock.
+    </p>
+    <p class="subdeck">
+      Two nodes meet offline and co-sign each other&rsquo;s current chain head. That signature is an
+      <b>upper</b> bound — the record existed no later than the meeting; it never proves the record
+      did not exist earlier. Where no meeting covers a record, the answer is
+      <code class="k-unwit">unwitnessed</code>, and the window stays open.
+      <span class="cite">spec/02 §5.2, §8.1</span>
+    </p>
+    <div class="cta-row">
+      <a class="btn-primary btn-lg" href="./demo.html">Run the demo</a>
+      <a class="btn-ghost btn-lg" href="https://github.com/VampiricCyborg/Vigilarch">View on GitHub</a>
+    </div>
+    <p class="hero-foot">
+      Offline systems record whatever the device clock said, and a device clock is a settable field.
+      Vigilarch replaces the clock with contact.
+      <span class="cite">README &middot; opening</span>
+    </p>
   </div>
 
-  <aside class="detail" id="detail" aria-live="polite">
-    <h2>bracket</h2>
-    <div id="detail-body">
-      <p class="empty">Click an observation in either chain to bracket it.</p>
+  <!-- ========================================================================
+       LIVE DATA CARD — the centrepiece.
+       Every value inside is returned by `crates/vigil-wasm` compiled to
+       wasm32-unknown-unknown and running in the visitor's browser. landing.js
+       drives a five-call canned run and prints what comes back. There is no
+       hardcoded id, bound, depth or verdict in this file or in landing.js: the
+       card is empty markup until the module answers, and says so if it cannot.
+       ======================================================================== -->
+  <aside class="livecard" id="livecard" aria-live="polite">
+    <header class="lc-head">
+      <span class="lc-live" id="lc-status" data-state="loading">
+        <span class="dot" aria-hidden="true"></span><span id="lc-status-text">loading vigil-ledger&hellip;</span>
+      </span>
+      <span class="lc-target">wasm32-unknown-unknown</span>
+    </header>
+
+    <div class="lc-body" id="lc-body">
+      <p class="lc-boot">
+        Running a five-call canned scenario against the real ledger. Nothing on this card is written
+        into the page — every value below comes back from the module.
+      </p>
     </div>
+
+    <footer class="lc-foot">
+      Computed by <code>vigil-ledger</code> in WebAssembly, not by the JavaScript around it —
+      invariant I2, one implementation of the ledger. This page holds no chain, attestation or
+      bracketing logic of its own.
+    </footer>
   </aside>
+</section>
+
+<!-- ==========================================================================
+     STAT STRIP — README.md "Measured results" only. That section's verbatim
+     stdout is:
+       scale-up: seeds=0..1000 scenarios=3
+       minimal           pass=1000 fail=0
+       equivocation      pass=1000 fail=0
+       sealing-ablation  pass=1000 fail=0
+       scale-up: PASS 3000/3000 runs in 7.274s
+     The 7.274s is deliberately NOT a stat tile: the README says it "varies run
+     to run and is not a benchmark", so it appears as a caption, in those words.
+     ========================================================================== -->
+<section class="stats" aria-label="Measured results">
+  <div class="measure">
+    <p class="eyebrow">README &middot; measured results &middot; one command, clean checkout</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="num" data-count="1000">1000</span><span class="lbl">seeds per scenario</span></div>
+      <div class="stat"><span class="num" data-count="3">3</span><span class="lbl">scenarios, each run once per seed</span></div>
+      <div class="stat"><span class="num" data-count="3000">3000</span><span class="lbl">of 3000 runs passed</span></div>
+      <div class="stat"><span class="num" data-count="0">0</span><span class="lbl">failing seeds</span></div>
+    </div>
+    <p class="stats-cap">
+      <code>cargo run -p vigil-sim --release -- --scale-up --seeds 1000</code>. The runner also
+      prints <code>in 7.274s</code>, a monotonic diagnostic to catch an algorithmic regression; it
+      varies run to run and is not a benchmark. Witness-latency distribution, attestation-graph
+      density and key-attribution accuracy are <b>not measured yet</b> and will not be filled in
+      with estimates.
+    </p>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     HOW IT WORKS — four steps that are a real sequence (each provably precedes
+     the next), which is what earns the numbering. Sources per step in-line.
+     ========================================================================== -->
+<section class="band" id="how">
+  <div class="measure">
+    <p class="eyebrow">spec/04 §2.1 &middot; the mechanism, in brief</p>
+    <h2 class="band-h">Four moves, and none of them is a clock.</h2>
+
+    <ol class="steps">
+      <li>
+        <span class="stepno">01</span>
+        <div class="step-body">
+          <h3>Append</h3>
+          <p>
+            Every node keeps a hash-linked chain of its own observations: entry <i>n</i> carries
+            <code>prev</code> = the content address of entry <i>n−1</i>, and <code>seq</code> = <i>n</i>.
+            A node cannot insert into its own past without either breaking a <code>prev</code> link or
+            publishing two entries at one <code>seq</code> — both detectable.
+          </p>
+          <p class="cite">spec/01 §6.1, §6.6</p>
+        </div>
+      </li>
+      <li>
+        <span class="stepno">02</span>
+        <div class="step-body">
+          <h3>Meet</h3>
+          <p>
+            When two nodes meet, each signs an attestation about the other&rsquo;s current chain head:
+            &ldquo;I, the witness, saw the subject present head <i>H</i> at <code>seq</code> <i>s</i>.&rdquo;
+            The attestation says nothing in wall-clock terms. Each node embeds the attestation naming it
+            as subject into its own next entry, via <code>acks</code>.
+          </p>
+          <p class="cite">spec/01 §6.5 &middot; spec/02 §3.4</p>
+        </div>
+      </li>
+      <li>
+        <span class="stepno">03</span>
+        <div class="step-body">
+          <h3>Seal</h3>
+          <p>
+            Attestations and observations form a DAG whose edges all mean &ldquo;the tail is in the
+            causal past of the head.&rdquo; A record is <b class="k-sealed">sealed</b> when an
+            attestation by a witness other than its author provably follows it. Otherwise it is
+            <b class="k-unwit">unwitnessed</b>, and the window is left open rather than guessed at.
+          </p>
+          <p class="cite">spec/02 §4.2, §5.2</p>
+        </div>
+      </li>
+      <li>
+        <span class="stepno">04</span>
+        <div class="step-body">
+          <h3>Verify</h3>
+          <p>
+            <code>vigil-verify</code> takes the evidence pack and the organisation&rsquo;s public key,
+            re-parses every object, rebuilds the chain and the DAG, and recomputes every bracket from
+            scratch. It links only <code>vigil-core</code> — a second implementation written from the
+            spec, not a call back into the code that built the pack. No database, no network, no node.
+          </p>
+          <p class="cite">spec/03 §5 &middot; ADR-0005</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     INVARIANTS — README.md "Invariants", one card per invariant, statements
+     tightened from the README's own wording with nothing added to them.
+     The enforced / design-commitment split is the README's own preamble:
+     "I1–I5 are enforced by code and CI today ... I6 is a design commitment
+     recorded now ... v1 has nothing to enforce it against."
+     ========================================================================== -->
+<section class="band alt" id="invariants">
+  <div class="measure">
+    <p class="eyebrow">README &middot; invariants</p>
+    <h2 class="band-h">Six rules the code is not allowed to break.</h2>
+
+    <div class="grid-6">
+      <article class="card inv">
+        <span class="inv-id">I1</span>
+        <h3>No node is the source of truth.</h3>
+        <p>The hub is a convenience peer with no authority an edge node lacks. If the hub burns down,
+           the organisation loses convenience and nothing else.</p>
+        <span class="chip chip-on">enforced by code and CI</span>
+      </article>
+      <article class="card inv">
+        <span class="inv-id">I2</span>
+        <h3>One implementation of the ledger.</h3>
+        <p>Chain, attestation and verification logic exists once, in Rust, and stays compilable to
+           <code>wasm32-unknown-unknown</code>. Storage lives behind a <code>Store</code> trait and an
+           in-memory backend is always available.</p>
+        <span class="chip chip-on">enforced by code and CI</span>
+      </article>
+      <article class="card inv">
+        <span class="inv-id">I3</span>
+        <h3>Capture is immutable.</h3>
+        <p><code>Observation</code> and <code>Attestation</code> are never edited.</p>
+        <span class="chip chip-on">enforced by code and CI</span>
+      </article>
+      <article class="card inv">
+        <span class="inv-id">I4</span>
+        <h3>No wall-clock reads in the ledger.</h3>
+        <p>Enforced by <code>clippy.toml</code>. All time flows through the HLC, which is a merge hint
+           and never evidence. Device clocks are attacker-controlled input.</p>
+        <span class="chip chip-on">enforced by code and CI</span>
+      </article>
+      <article class="card inv">
+        <span class="inv-id">I5</span>
+        <h3>Never overstate what the system knows.</h3>
+        <p>Any computed confidence is conservative one-sidedly, and every simulator run asserts it.
+           Overstating knowledge is the cardinal defect of this system.</p>
+        <span class="chip chip-on">enforced by code and CI</span>
+      </article>
+      <article class="card inv">
+        <span class="inv-id">I6</span>
+        <h3>Conflicting values are never silently resolved.</h3>
+        <p>If semantic interpretation is ever modelled, two supervisors disagreeing on a severity
+           assessment is information, not a merge failure. v1 has no interpretation layer, so nothing
+           today enforces this.</p>
+        <span class="chip chip-off">design commitment &middot; nothing enforces it in v1</span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     LIMITS — README.md "What this does *not* claim" plus spec/04 §2.3.
+     Given the same visual weight as the invariant grid on purpose: the limits
+     are the load-bearing half of the claim, not small print.
+     ========================================================================== -->
+<section class="band limits" id="limits">
+  <div class="measure">
+    <p class="eyebrow">README &middot; what this does not claim &nbsp;&middot;&nbsp; spec/04 §2.3</p>
+    <h2 class="band-h">What this does <em>not</em> claim.</h2>
+    <p class="band-lede">
+      Stated up front, because a guarantee that is not stated precisely is not a guarantee.
+    </p>
+
+    <div class="grid-6">
+      <article class="card limit">
+        <h3>Upper bound only.</h3>
+        <p>An attestation proves a record existed <em>no later than</em> the meeting. It cannot prove
+           the record did not exist earlier.</p>
+      </article>
+      <article class="card limit">
+        <h3>A node isolated since genesis is not detectable.</h3>
+        <p>It can fabricate a complete, signature-valid, internally consistent chain with any clock
+           values. There is no contradiction to find. The correct output is a wide unwitnessed window
+           — <b>not an alarm, a detection, or a fork</b>.</p>
+      </article>
+      <article class="card limit">
+        <h3>No interpolation, ever.</h3>
+        <p>Where the attestation graph does not prove an ordering, the answer is
+           <code class="k-unwit">unwitnessed</code>. Never a best estimate.</p>
+      </article>
+      <article class="card limit">
+        <h3>No defence against a real-time lie.</h3>
+        <p>A person who reports something false as it happens produces a record that seals perfectly.
+           Entanglement orders records; it does not make people honest.</p>
+      </article>
+      <article class="card limit">
+        <h3>Witness depth counts keys, not people.</h3>
+        <p>One actor holding several device keys can attest their own records under &ldquo;distinct&rdquo;
+           keys and inflate the depth. One key per org-issued device is an operational assumption, not
+           a cryptographic guarantee, and is not implemented in v1.</p>
+      </article>
+      <article class="card limit">
+        <h3>Relative, not absolute.</h3>
+        <p>Every bound is relative to other chain events and, ultimately, to the moment
+           <code>vigil-verify</code> runs. &ldquo;Before Friday&rdquo; is shorthand for a chain of
+           relative orderings.</p>
+      </article>
+    </div>
+
+    <p class="novelty">
+      <b>And none of this is a new protocol.</b> Hash-linked timestamping is Haber&ndash;Stornetta
+      (1991); mutual attestation between peer histories is Maniatis &amp; Baker&rsquo;s timeline
+      entanglement (2002). The contribution here is the application to disconnected incident
+      reporting, the honest surfacing of what is <em>not</em> known, and the measurement — not the
+      primitives.
+      <span class="cite">README &middot; What this does not claim</span>
+    </p>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     VERIFICATION CHECKLIST — every row is a claim the suite or CI actually
+     checks, with the source file printed on the row. The last row is an OPEN
+     item, not a tick, because spec/04 §5.2 records it as an open gap.
+     Note on row 4: this repository does NOT have a coverage-guided fuzzer.
+     crates/vigil-core/tests/decode_robustness.rs says so in as many words
+     ("These are property tests rather than a coverage-guided fuzzer ... an unrun
+     fuzzer proves nothing"), so this row says "property tests" and names the
+     difference rather than claiming the stronger thing.
+     ========================================================================== -->
+<section class="band alt" id="verification">
+  <div class="measure">
+    <p class="eyebrow">what the suite actually checks</p>
+    <h2 class="band-h">Verification, and where it stops.</h2>
+
+    <ul class="checklist">
+      <li class="ok">
+        <div class="ck-body"><b><code>vigil-verify</code> links only <code>vigil-core</code></b> — not
+        <code>vigil-ledger</code>, not as a dependency and not as a dev-dependency. Its chain check,
+        DAG construction and bracketing are a second implementation written from the spec.</div>
+        <span class="src">README &middot; Layout &nbsp;&middot;&nbsp; ADR-0005</span>
+      </li>
+      <li class="ok">
+        <div class="ck-body"><b>Equivocation yields one self-verifying <code>ForkProof</code></b>;
+        quarantine disputes the convicted key&rsquo;s unwitnessed records but keeps pre-fork sealed
+        ones valid, and the withheld sibling is never sealed.</div>
+        <span class="src">crates/vigil-ledger/tests/fork.rs &nbsp;&middot;&nbsp; spec/02 §6.4–6.5</span>
+      </li>
+      <li class="ok">
+        <div class="ck-body"><b>A chain is reported <code>Verified</code> / <code>Incomplete</code> /
+        <code>Violated</code></b>, and the middle case never collapses into either neighbour. An
+        incomplete chain is not a violated one, and neither is silently upgraded.</div>
+        <span class="src">crates/vigil-ledger/tests/chain.rs &nbsp;&middot;&nbsp; spec/01 §6.6</span>
+      </li>
+      <li class="ok">
+        <div class="ck-body"><b>Property tests over every decode path</b> — arbitrary, structurally
+        plausible, mutated and truncated input never panics; rejection is total; canonical form is a
+        bijection. These are property tests, <em>not</em> a coverage-guided fuzzer: a
+        <code>cargo-fuzz</code> target needs nightly and does not run in this workspace&rsquo;s CI,
+        and the file says so rather than claiming the stronger thing.</div>
+        <span class="src">crates/vigil-core/tests/decode_robustness.rs</span>
+      </li>
+      <li class="ok">
+        <div class="ck-body"><b>Native and <code>wasm32</code> builds agree byte for byte</b> — the
+        divergence that would give one observation two content addresses and fork the ledger silently.
+        The same vector assertions run on both targets in CI.</div>
+        <span class="src">.github/workflows/ci.yml &middot; job <code>wasm</code></span>
+      </li>
+      <li class="ok">
+        <div class="ck-body"><b>Golden vectors were written by hand from the spec before the encoder
+        existed</b>, and CI regenerates them and fails on any byte diff. A vector generated by the
+        encoder under test proves only that the encoder agrees with itself.</div>
+        <span class="src">testdata/README.md &nbsp;&middot;&nbsp; ci.yml &middot; &ldquo;Golden vectors are reproducible&rdquo;</span>
+      </li>
+      <li class="ok">
+        <div class="ck-body"><b>Signatures are domain-separated</b> over
+        <code>"vigilarch/1/sig" || 0x00 || id</code>, and do <em>not</em> verify over the bare id.</div>
+        <span class="src">crates/vigil-core/tests/vectors.rs &nbsp;&middot;&nbsp; src/sign.rs</span>
+      </li>
+      <li class="ok">
+        <div class="ck-body"><b>Adding a valid attestation never widens a bracket</b>, and the bracket
+        is identical across ingest orders — the DAG is a pure function of the held set.</div>
+        <span class="src">crates/vigil-ledger/tests/bracket.rs, dag.rs &nbsp;&middot;&nbsp; spec/02 §5.5, §5.6</span>
+      </li>
+      <li class="ok">
+        <div class="ck-body"><b>No wall-clock read can enter the ledger</b> — banned in
+        <code>clippy.toml</code> and made fatal by <code>-D warnings</code> in CI, so invariant I4 is a
+        build failure rather than a review note.</div>
+        <span class="src">.github/workflows/ci.yml &middot; job <code>native</code></span>
+      </li>
+      <li class="open">
+        <div class="ck-body"><b>Open: two sites connected only through a courier get no ordering
+        between them.</b> An <code>Attestation</code> carries the subject&rsquo;s head but nothing
+        about the witness&rsquo;s own chain position, so wire version 1 produces no cross-author DAG
+        edge. Such records come out <code>incomparable</code> — the honest, conservative output. The
+        <code>mule-relay</code> scenario is out of scope until a <code>witness_seq</code> field
+        exists.</div>
+        <span class="src">spec/04 §5.2 &nbsp;&middot;&nbsp; ADR-0003 Part 2</span>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     PIPELINE — real crate paths and real symbols, checked against the source:
+       vigil-node          POST /obs, GET /obs/{id}/provenance, POST /export
+       append              vigil_ledger::append
+       ingest_attestation  vigil_ledger::ingest_attestation
+       Dag::build/bracket  vigil_ledger::Dag
+       export_pack         crates/vigil-ledger/src/export.rs:102
+       vigil-verify        crates/vigil-verify
+     515 bytes, the VIOLATED verdict and exit 1 are the README Demo transcript.
+     ========================================================================== -->
+<section class="band" id="pipeline">
+  <div class="measure">
+    <p class="eyebrow">crates/ &middot; the real call path</p>
+    <h2 class="band-h">One record, end to end.</h2>
+    <p class="band-lede">
+      Every stage below is a function or a binary in this workspace. <code>./demo.sh</code> walks it in
+      six steps and prints its transcript into the README.
+    </p>
+
+    <div class="codeblock">
+<pre><code><span class="c-c"># capture — the device signs its own observation; seq and prev come from the store</span>
+<span class="c-s">capture</span>                vigil-node     POST /obs
+<span class="c-s">chain append</span>           vigil-ledger   append(&amp;mut store, &amp;obs, &amp;sig)     <span class="c-c"># guarded §6.6 write</span>
+
+<span class="c-c"># meet — a witness signs the subject's head; it lands in the subject's store</span>
+<span class="c-s">attestation exchange</span>   vigil-ledger   ingest_attestation(&amp;mut store, …)
+<span class="c-s">DAG build</span>              vigil-ledger   Dag::build(&amp;store, &amp;quarantine)
+<span class="c-s">bracket</span>                vigil-ledger   Dag::bracket(id)                   <span class="c-c"># sealed | unwitnessed</span>
+
+<span class="c-c"># hand it to a third party — the minimal object set the claim follows from</span>
+<span class="c-s">export pack</span>            vigil-ledger   export_pack(&amp;store, claim)         <span class="c-c"># 515 bytes, honest.vgl</span>
+<span class="c-s">independent verify</span>     vigil-verify   vigil-verify &lt;pack&gt; &lt;org-pubkey&gt;   <span class="c-c"># links only vigil-core</span>
+
+<span class="c-c"># and the detection has to fire, or it is not a detection</span>
+<span class="c-s">tampered pack</span>          vigil-verify   testdata/packs/t2-resigned-genesis.vgl
+                       <span class="c-b">→ chain VIOLATED · BrokenLink at seq 1 · attributed to the author key · exit 1</span></code></pre>
+    </div>
+    <p class="cite">README &middot; Demo transcript, steps 3–5 &nbsp;&middot;&nbsp; spec/03 §5, §6.5 T2</p>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     FAQ — adapted to FAQ length from spec/04-threat-model.md. Nothing softened:
+       Q1  §4     the backdating non-guarantee, stated plainly
+       Q2  §2.2   the sealing theorem, and §4's closing sentence
+       Q3  §2.3   the genesis-isolated node
+       Q4  §5.2   the mule-relay gap
+       Q5  §2.3   witness depth counts keys, not people
+       Q6  §2.4   what forces backdating into the open
+       Q7  README what this does not claim (novelty)
+     ========================================================================== -->
+<section class="band alt" id="faq">
+  <div class="measure narrow">
+    <p class="eyebrow">spec/04-threat-model.md</p>
+    <h2 class="band-h">Questions the threat model already answers.</h2>
+
+    <details class="faq" open>
+      <summary>Does Vigilarch detect backdating?</summary>
+      <div class="faq-body">
+        <p><b>Not in general.</b> An actor who sets a false <code>hlc</code> on an observation and
+        appends it honestly to their own chain — correct <code>prev</code>, correct <code>seq</code>,
+        no second entry at that position — produces a record that passes every check the system
+        performs. The chain verifies. The bracket is computed correctly, and the false
+        <code>hlc</code> sits inside that bracket where it changes no bound.</p>
+        <p>Backdating becomes catchable <b>only</b> when it additionally requires equivocation:
+        inserting a record at a <code>seq</code> position the chain has already committed, or
+        presenting one witness a chain that another witness&rsquo;s attestation contradicts. Those are
+        forks, and forks are detected and attributed.</p>
+        <p class="cite">spec/04 §4</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>What does a <code>sealed</code> verdict actually prove?</summary>
+      <div class="faq-body">
+        <p>That the record provably existed no later than meeting <i>U</i>, and — where a lower bound
+        exists — provably no earlier than meeting <i>L</i> in causal order. Backdating past <i>U</i>
+        would require forging the witness&rsquo;s key or having shown that witness a different chain,
+        and the second is a fork.</p>
+        <p>It does <b>not</b> mean the record&rsquo;s <code>hlc</code> is truthful.</p>
+        <p class="cite">spec/04 §2.2, §4</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>What happens to a node that has never met anyone?</summary>
+      <div class="faq-body">
+        <p>It can fabricate a complete, signature-valid, internally consistent chain with any clock
+        values, and there is no contradiction to find. The correct output is a wide unwitnessed window
+        — open to genesis below, open to now above — labelled
+        <code class="k-unwit">unwitnessed</code>.</p>
+        <p>That is <b>not</b> an alarm, a detection, or a fork. The <code>honest-partition</code>
+        scenario asserts exactly this: no alarm.</p>
+        <p class="cite">spec/04 §2.3 &nbsp;&middot;&nbsp; spec/02 §8.2</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Can a courier connect two sites that never meet each other?</summary>
+      <div class="faq-body">
+        <p>Not in wire version 1. An <code>Attestation</code> carries the subject&rsquo;s head but
+        nothing about the witness&rsquo;s own chain position, so the three edge rules produce no edge
+        between two different authors&rsquo; chains. A mule that entangles Site A and then Site B
+        issues two attestations, but nothing records the order it issued them in — the path
+        <i>Site A → mule → Site B</i> does not exist in the graph.</p>
+        <p>Two sites connected <em>only</em> through a mule therefore produce
+        <code>incomparable</code> records, which is the honest, conservative output rather than a
+        correctness defect. The courier still tightens each site&rsquo;s <em>own</em> brackets. Closing
+        the gap needs a new <code>witness_seq</code> field and a fourth edge type, with its own ADR and
+        a new golden vector.</p>
+        <p class="cite">spec/04 §5.2 &nbsp;&middot;&nbsp; ADR-0003 Part 2</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Does a witness depth of 3 mean three people vouched for this?</summary>
+      <div class="faq-body">
+        <p>No — witness depth counts <b>keys</b>, not people. One actor holding several device keys can
+        attest their own records under &ldquo;distinct&rdquo; keys and inflate the depth. The
+        mitigation is one key per organisation-issued device, which is an operational assumption rather
+        than a cryptographic guarantee, and it is not implemented in v1.</p>
+        <p class="cite">spec/04 §2.3 &nbsp;&middot;&nbsp; spec/02 §8.9</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>So what <em>does</em> force a backdater into the open?</summary>
+      <div class="faq-body">
+        <p>Within its bracket <i>[L, U]</i> a node may set a record&rsquo;s <code>hlc</code> to any
+        value; no bound depends on it. To place a record <b>before</b> its lower-bound meeting, the
+        author must publish a second entry at an already-committed <code>seq</code> without that
+        meeting in its <code>acks</code>. To place it <b>after</b> its upper-bound meeting, the author
+        must have shown that witness a chain without the record.</p>
+        <p>Both are forks — detectable and attributable to a key the moment one verifier holds both
+        branches. Escaping the bracket is not a subtle attack; it is a fork.</p>
+        <p class="cite">spec/04 §2.4 &nbsp;&middot;&nbsp; spec/02 §5.4, §6.1</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Is the protocol new?</summary>
+      <div class="faq-body">
+        <p>No, and the repository is deliberate about saying so. Hash-linked timestamping is
+        Haber&ndash;Stornetta (1991); mutual attestation between peer histories is Maniatis &amp;
+        Baker&rsquo;s timeline entanglement (2002). The contribution is the application to disconnected
+        incident reporting, the honest surfacing of what is not known, and the measurement.</p>
+        <p class="cite">README &middot; What this does not claim</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ========================== CLOSING CTA =================================== -->
+<section class="closing">
+  <div class="measure">
+    <p class="eyebrow">two nodes &middot; one meeting &middot; your browser</p>
+    <h2 class="closing-h">Run the demo.</h2>
+    <p class="closing-p">
+      Append to either chain, exchange attestations, then click any entry to see its bracket.
+      Equivocate to watch one key sign two irreconcilable entries and get convicted — while the
+      withheld sibling stays unsealed. It is the same chain, DAG, bracket and fork-detection code
+      <code>vigil-sim</code> and <code>vigil-node</code> run natively, compiled to
+      <code>wasm32</code>.
+    </p>
+    <div class="cta-row">
+      <a class="btn-primary btn-lg" href="./demo.html">Run the demo</a>
+      <a class="btn-ghost btn-lg" href="https://github.com/VampiricCyborg/Vigilarch">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
 </main>
 
-<section class="attestations" aria-label="Attestations held">
-  <h2>attestations <span class="count" id="att-count"></span></h2>
-  <table id="att-table">
-    <thead>
-      <tr><th>id</th><th>witness</th><th>subject</th><th>subject_seq</th><th>subject_head</th></tr>
-    </thead>
-    <tbody id="att-body"></tbody>
-  </table>
-  <p class="empty" id="att-empty">none — the nodes have not met</p>
-</section>
+<footer class="sitefoot">
+  <div class="measure foot-grid">
+    <div class="foot-brand">
+      <a class="mark" href="./index.html" aria-label="Vigilarch home">
+        <svg width="26" height="14" viewBox="0 0 26 14" fill="none" aria-hidden="true">
+          <path d="M1.5 1v12" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+          <path d="M3 7h20" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2.5" opacity=".6"/>
+          <path d="M24.5 1v12" stroke="currentColor" stroke-width="2" stroke-linecap="square"/>
+        </svg>
+        <span class="wordmark">VIGILARCH</span>
+      </a>
+      <p>
+        A public repository with a self-contained demo — not a product. No customers, sites, hardware
+        or users. Everything runs on one machine from a seed.
+      </p>
+    </div>
 
-<section class="log-wrap" aria-label="Action log">
-  <h2>transcript</h2>
-  <pre class="log" id="log" tabindex="0"></pre>
-</section>
+    <nav class="foot-col" aria-label="Product">
+      <h3>Product</h3>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/tree/main/crates/vigil-ledger">Ledger <span>vigil-ledger</span></a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/tree/main/crates/vigil-verify">Verifier <span>vigil-verify</span></a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/tree/main/crates/vigil-node">Node <span>vigil-node</span></a>
+      <a href="./demo.html">Interactive demo</a>
+    </nav>
 
-<footer>
-  <p>
-    Every verdict on this page is computed by <code>vigil-ledger</code> in WebAssembly, not by
-    the JavaScript around it — invariant I2, one implementation of the ledger. The page holds
-    no chain, attestation or bracketing logic of its own.
-  </p>
+    <nav class="foot-col" aria-label="Resources">
+      <h3>Resources</h3>
+      <a href="https://github.com/VampiricCyborg/Vigilarch#readme">README</a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/01-wire-format.md">spec/01 <span>wire format</span></a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/02-entanglement.md">spec/02 <span>entanglement</span></a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/03-export-pack.md">spec/03 <span>export pack</span></a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/blob/main/spec/04-threat-model.md">spec/04 <span>threat model</span></a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/tree/main/docs/adr">docs/adr <span>decision records</span></a>
+    </nav>
+
+    <nav class="foot-col" aria-label="Source">
+      <h3>Source</h3>
+      <a href="https://github.com/VampiricCyborg/Vigilarch">GitHub <span>VampiricCyborg/Vigilarch</span></a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/actions/workflows/ci.yml">CI <span>native + wasm</span></a>
+      <a href="https://github.com/VampiricCyborg/Vigilarch/tree/main/testdata">testdata <span>vectors, packs</span></a>
+    </nav>
+  </div>
+
+  <!-- README "Known tensions and open items" records both of these. A page that
+       omitted them would be claiming more than the repository does. -->
+  <div class="measure foot-note">
+    <p>
+      <b>Licence: not yet chosen.</b> The workspace currently declares <code>UNLICENSED</code>, which is
+      wrong for a public repository and is tracked as a defect to fix before publication.
+    </p>
+    <p>
+      <b>Append-only storage pulls against the right to erasure.</b> A retraction is a new record saying
+      the old one is withdrawn; it does not remove what was written, and peers who already hold the
+      original keep holding it. That is what makes the evidence claim work, and it is a real cost a
+      deployment under GDPR or DPDP would have to answer for.
+      <span class="cite">README &middot; Known tensions and open items</span>
+    </p>
+  </div>
 </footer>
 
-<script type="module" src="./app.js"></script>
+<script type="module" src="./landing.js"></script>
 </body>
 </html>

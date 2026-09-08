@@ -6,52 +6,20 @@
  * the project's whole point, so it is carried by shape and colour, never by text
  * alone. */
 
-/* --- tokens: terminal by default, paper under a light-mode preference ------- */
-
-:root {
-  --bg:        #0e1116;
-  --panel:     #151a21;
-  --panel-2:   #1b212a;
-  --rule:      #2a323d;
-  --ink:       #ced5df;
-  --ink-dim:   #8b96a5;
-  --ink-faint: #5c6674;
-
-  --sealed:      #3fb950;
-  --sealed-bg:   #10331a;
-  --unwitnessed: #d9a233;
-  --unwit-bg:    #33280c;
-  --disputed:    #f06a5f;
-  --disputed-bg: #3a1512;
-  --accent:      #6aa9e0;
-
-  --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
-          "DejaVu Sans Mono", "Liberation Mono", monospace;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg:        #f7f6f3;
-    --panel:     #ffffff;
-    --panel-2:   #f0eee9;
-    --rule:      #d6d2ca;
-    --ink:       #1c1c1c;
-    --ink-dim:   #5d5a54;
-    --ink-faint: #8b877f;
-
-    --sealed:      #14733a;
-    --sealed-bg:   #e2f2e6;
-    --unwitnessed: #8a5d00;
-    --unwit-bg:    #faefd6;
-    --disputed:    #b32318;
-    --disputed-bg: #fbe3e0;
-    --accent:      #14568f;
-  }
-}
+/* --- tokens ---------------------------------------------------------------- */
+/* The palette and the shared header bar live in base.css, which the landing page
+ * links too, so the two pages cannot drift apart. This sheet only consumes them.
+ *
+ * Nothing below renames a class or an id: app.js queries this DOM by name, and a
+ * restyle that renamed a hook would break the one thing on the page that matters. */
 
 /* --- frame ---------------------------------------------------------------- */
 
 * { box-sizing: border-box; }
+
+/* base.css pads .sitenav for a full-bleed page; this page's body is already a
+ * padded 1180px measure, so the bar rides that measure instead. */
+.sitenav { padding-inline: 0; margin-bottom: .25rem; }
 
 body {
   margin: 0;
@@ -63,7 +31,16 @@ body {
   margin-inline: auto;
 }
 
-h1, h2 { font-weight: 600; letter-spacing: -0.01em; }
+/* Headings take the landing page's display face; everything with data in it
+ * stays monospace, which is the register the transcript needs. */
+h1, h2 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-stretch: 110%;
+  letter-spacing: 0;
+  color: var(--ink-strong);
+}
+h2 { font-size: .95rem; }
 
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 
@@ -72,12 +49,16 @@ code { color: var(--ink); background: var(--panel-2); padding: 0 .25em; border-r
 /* --- explanatory strip ---------------------------------------------------- */
 
 .strip {
-  padding: 1.75rem 0 1.25rem;
+  padding: 1.9rem 0 1.35rem;
   border-bottom: 1px solid var(--rule);
 }
 
-.strip h1 { margin: 0 0 .75rem; font-size: 1.15rem; }
-.strip h1 .sub { color: var(--ink-faint); font-weight: 400; }
+.strip h1 { margin: 0 0 .8rem; font-size: 1.45rem; font-weight: 700; }
+.strip h1 .sub {
+  color: var(--ink-faint);
+  font-weight: 400;
+  font-stretch: 100%;
+}
 
 .strip p {
   margin: 0 0 .6rem;
@@ -320,6 +301,7 @@ main {
   padding: 1.1rem 0;
 }
 .attestations h2, .log-wrap h2 { margin: 0 0 .6rem; font-size: .95rem; }
+.attestations h2, .log-wrap h2, .detail h2, .window h3 { text-transform: lowercase; }
 .count { color: var(--ink-faint); font-weight: 400; font-size: 11px; }
 
 table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
