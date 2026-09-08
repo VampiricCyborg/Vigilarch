@@ -79,7 +79,8 @@ impl Node {
     /// If the OS randomness source is unavailable.
     pub fn new() -> anyhow::Result<Self> {
         let mut seed = [0u8; 32];
-        getrandom::fill(&mut seed).map_err(|e| anyhow::anyhow!("OS randomness unavailable: {e}"))?;
+        getrandom::fill(&mut seed)
+            .map_err(|e| anyhow::anyhow!("OS randomness unavailable: {e}"))?;
         Ok(Self::from_seed(seed))
     }
 
@@ -129,7 +130,11 @@ impl Node {
         }
         let mut g = self.lock();
 
-        let (seq, prev) = match g.store.chain_head(&g.pubkey).map_err(CaptureError::ledger)? {
+        let (seq, prev) = match g
+            .store
+            .chain_head(&g.pubkey)
+            .map_err(CaptureError::ledger)?
+        {
             Some(head) => (head.seq + 1, Some(head.id)),
             None => (0, None),
         };

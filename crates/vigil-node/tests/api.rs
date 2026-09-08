@@ -15,10 +15,7 @@ use vigil_node::{Node, dispatch, serve, shared};
 /// address. The server thread runs until the test process exits.
 fn start() -> SocketAddr {
     let server = tiny_http::Server::http("127.0.0.1:0").expect("bind loopback");
-    let addr = server
-        .server_addr()
-        .to_ip()
-        .expect("an ip listen address");
+    let addr = server.server_addr().to_ip().expect("an ip listen address");
     let node = shared(Node::from_seed([7u8; 32]));
     std::thread::spawn(move || serve(node, server));
     addr
@@ -156,13 +153,19 @@ fn export_returns_bytes_that_parse_as_a_valid_pack() {
     );
     let contents = vigil_ledger::parse_pack(&pack).expect("pack parses per spec/03 §5 steps 1-3");
     assert_eq!(contents.wire_version, 1);
-    assert_eq!(contents.invalid_object_count, 0, "every carried object self-checks");
+    assert_eq!(
+        contents.invalid_object_count, 0,
+        "every carried object self-checks"
+    );
 
     let want = {
         let raw = hex::decode(&id).unwrap();
         vigil_core::Hash(raw.try_into().unwrap())
     };
-    assert!(contents.claims.contains(&want), "the claimed id is in the pack");
+    assert!(
+        contents.claims.contains(&want),
+        "the claimed id is in the pack"
+    );
 
     // The pack is issued under the node's own key; vigil-verify would be called
     // with that key. Confirm it round-trips as the org label.
@@ -179,7 +182,10 @@ fn export_rejects_a_claim_the_node_does_not_hold() {
     let (status, _, body) = http(addr, "POST", "/export", &req);
     assert_eq!(status, 400);
     assert!(
-        json(&body)["error"].as_str().unwrap().contains("does not hold"),
+        json(&body)["error"]
+            .as_str()
+            .unwrap()
+            .contains("does not hold"),
         "the error names the missing claim"
     );
 }
@@ -197,7 +203,12 @@ fn malformed_requests_get_the_right_status() {
     assert_eq!(status, 400);
 
     // provenance of a well-formed but unknown id
-    let (status, _, _) = http(addr, "GET", &format!("/obs/{}/provenance", "a".repeat(64)), b"");
+    let (status, _, _) = http(
+        addr,
+        "GET",
+        &format!("/obs/{}/provenance", "a".repeat(64)),
+        b"",
+    );
     assert_eq!(status, 404);
 
     // wrong method on a real path

@@ -46,7 +46,11 @@ impl HttpResponse {
 pub fn dispatch(node: &Node, method: &str, path: &str, body: &[u8]) -> HttpResponse {
     // Drop any query string; none of these endpoints take one.
     let path = path.split('?').next().unwrap_or(path);
-    let segments: Vec<&str> = path.trim_matches('/').split('/').filter(|s| !s.is_empty()).collect();
+    let segments: Vec<&str> = path
+        .trim_matches('/')
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .collect();
 
     match (method, segments.as_slice()) {
         ("GET", ["health"]) => health(node),
@@ -143,9 +147,10 @@ fn export(node: &Node, body: &[u8]) -> HttpResponse {
             content_type: "application/octet-stream",
             body: bytes,
         },
-        Err(ExportError::ClaimNotHeld(h)) => {
-            HttpResponse::error(400, &format!("claim names a record this node does not hold: {h}"))
-        }
+        Err(ExportError::ClaimNotHeld(h)) => HttpResponse::error(
+            400,
+            &format!("claim names a record this node does not hold: {h}"),
+        ),
         Err(ExportError::Store(e)) => HttpResponse::error(500, &e.to_string()),
     }
 }
@@ -196,11 +201,9 @@ fn serve_one(node: &Node, mut request: tiny_http::Request) {
     }
 
     let response = dispatch(node, &method, &url, &body);
-    let header = tiny_http::Header::from_bytes(
-        &b"Content-Type"[..],
-        response.content_type.as_bytes(),
-    )
-    .expect("static header is well-formed");
+    let header =
+        tiny_http::Header::from_bytes(&b"Content-Type"[..], response.content_type.as_bytes())
+            .expect("static header is well-formed");
 
     let _ = request.respond(
         tiny_http::Response::from_data(response.body)
