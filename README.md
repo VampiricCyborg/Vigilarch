@@ -65,7 +65,7 @@ record it holds is reported `unwitnessed` with an open window, which is the hone
 for a node with no witness, not a gap.
 
 The three scenarios run across a seed range as one aggregate — `vigil-sim --scale-up
---seeds 1000` — and every scenario passes every seed (see [Evaluation](#evaluation)).
+--seeds 1000` — and every scenario passes every seed (see [Measured results](#measured-results)).
 
 Still to come: the multi-node sync `vigil-node` needs to seal anything (v2), the rest of
 the seeded adversarial scenarios with their ablation runs, and the parts of the
@@ -148,25 +148,59 @@ onward, not afterwards — every adversarial claim in this repository is evidenc
 seeded, reproducible run, and each is paired with an ablation run at the same seed with
 attestations disabled, asserting that the tamper goes *undetected* without them.
 
-### Evaluation
+### Measured results
 
-One command runs every scenario across a seed range and aggregates the result:
+Every number in this section is stdout from one command, run on a clean checkout.
+Nothing here is estimated, rounded, or reformatted.
 
 ```
 cargo run -p vigil-sim --release -- --scale-up --seeds 1000
 ```
 
 Each `(scenario, seed)` pair drives the real ledger once. The runner records pass or
-fail per seed — keeping the individual results, not just a counter — checks that
-`pass + fail` equals the seed count before printing anything, and exits non-zero
-naming the first failing scenario and seed if any scenario fails any seed. That every
-seed produces a byte-identical transcript is a separate assertion in the test suite.
+fail per seed — keeping the individual failing seeds, not just a counter — asserts that
+`pass + fail` equals the seed count before printing anything, and exits non-zero naming
+the first failing scenario and seed if any scenario fails any seed. That every seed
+produces a byte-identical transcript is a separate assertion in the test suite.
 
-| Scenario | Seeds | What must hold on every seed | Result |
-|---|---|---|---|
-| `minimal` — honest partition | `0..1000` | `bracket(O0)` is sealed by the meeting, with the window honestly open below to genesis | 1000 / 1000 |
-| `equivocation` | `0..1000` | one self-verifying `ForkProof` convicts the author; the withheld sibling is never sealed; quarantine changes only what the convicted key's attestations buy going forward | 1000 / 1000 |
-| `sealing-ablation` | `0..1000` | with one attestation, `bracket(O0)` is sealed and bounded above; without it, unwitnessed and open above — over a byte-identical honest chain | 1000 / 1000 |
+Verbatim output:
+
+```
+scale-up: seeds=0..1000 scenarios=3
+minimal           pass=1000 fail=0
+equivocation      pass=1000 fail=0
+sealing-ablation  pass=1000 fail=0
+scale-up: PASS 3000/3000 runs in 7.274s
+```
+
+The trailing `in 7.274s` is a monotonic diagnostic the runner prints to catch an
+algorithmic regression; it varies run to run and is not a benchmark.
+
+| Scenario | Seeds | Pass | Fail | First failing seed |
+|---|---|---|---|---|
+| `minimal` (honest partition) | `0..1000` | 1000 | 0 | — |
+| `equivocation` | `0..1000` | 1000 | 0 | — |
+| `sealing-ablation` | `0..1000` | 1000 | 0 | — |
+
+What a pass demonstrates, per scenario:
+
+- **`minimal`** — on every seed, `bracket(O0)` is sealed by the single attestation
+  exchange and its unwitnessed window stays honestly open below, down to genesis:
+  the sealing theorem of `spec/02` §5.2 together with the genesis-isolation
+  non-guarantee of §8.2.
+- **`equivocation`** — on every seed, one self-verifying `ForkProof` convicts the
+  author, the withheld sibling entry is never sealed, and quarantine changes only what
+  the convicted key's attestations buy going forward (`spec/02` §6, §6.4–6.5;
+  ADR-0003).
+- **`sealing-ablation`** — on every seed, one honest chain is sealed and bounded above
+  with a single attestation object and `unwitnessed` with an open window without it,
+  while full-chain verification is unaffected either way: the ablation required by
+  `spec/02` §9, contrasting §5.2 against §8.1 and §8.3.
+
+These are three fixed, small, fixed-topology scenarios run 1000 times each for
+determinism confidence — every seed must reach the same verdict. They are **not** a
+claim about correctness, throughput, or latency at real-world scale; the topology does
+not grow with the seed, and only the keys and nonces change between seeds.
 
 The remaining metrics — witness-latency distribution, attestation-graph density, and
 key-attribution accuracy as a rate — are **not measured yet** and will not be filled in
