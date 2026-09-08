@@ -1,15 +1,36 @@
 [package]
 name = "vigil-wasm"
-description = "wasm-bindgen wrapper exposing L0-L3 to the field PWA. Byte-identical logic to native (invariant #2)."
+description = "wasm-bindgen wrapper that runs the real vigil-ledger chain / DAG / bracket / fork-detection logic in a browser. No second implementation (invariant I2)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [lib]
+# `cdylib` is the wasm32 artifact `wasm-bindgen --target web` post-processes into
+# a bundler-free ES module; `rlib` is what the native test module below links.
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+# The point of this crate: run the *real* ledger in the browser, not a
+# reimplementation of it. So it links vigil-ledger directly — unlike vigil-verify,
+# whose independence rule forbids that link.
 vigil-core.workspace = true
 vigil-ledger.workspace = true
-vigil-sync.workspace = true
+
+# Holds the two demo nodes' device keys. `SigningKey::from_bytes` needs no RNG,
+# so this builds for wasm32-unknown-unknown without pulling `getrandom`.
+ed25519-dalek.workspace = true
+
+thiserror.workspace = true
+hex.workspace = true
+
+# The JS boundary. `serde` derives live on this crate's own DTO structs only
+# (see the module docs) — vigil-core stays free of serde on the hashed-preimage
+# path, which spec/01 §2.4 requires.
+serde = { workspace = true }
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
+
+[dev-dependencies]
+serde_json.workspace = true

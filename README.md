@@ -510,6 +510,7 @@ crates/
                   export, health) over one in-memory Store
   vigil-sim/      deterministic seeded simulator over the real ledger (lib + bin)
   vigil-verify/   independent verifier: evidence pack + org key in, ordering out
+  vigil-wasm/     wasm-bindgen wrapper: runs the real vigil-ledger in a browser
 spec/             the protocol specifications — stricter review than code
 docs/             design document, reality brief, ADRs
 testdata/         golden wire vectors, seeded scenarios
@@ -522,11 +523,19 @@ implementation written from the spec, not a call into the code that built the pa
 database, no network, no node. It reproduces every ordering claim from the evidence pack
 and the organisation's public key alone, and exits nonzero on any tamper.
 
-The workspace still contains `vigil-sync`, `vigil-transport`, `vigil-insight` and
-`vigil-wasm` as empty scaffolding from the pre-cut scope. They build but implement
-nothing, and they are slated for removal. Neither `vigil-sim` nor `vigil-node` depends on
-any of them: the simulator moves objects over the scripted link directly, and the node is
-a single process with no sync layer to wire up.
+`vigil-wasm` links `vigil-ledger` directly — the deliberate opposite of `vigil-verify`.
+Its point is to run the *real* chain, DAG, bracketing and fork-detection code under
+`wasm32-unknown-unknown`, byte-for-byte the same as native (invariant I2), exposed to
+JavaScript as a small `Demo` object that walks the same shapes `vigil-sim`'s `honest` and
+`equivocation` scenarios prove. It builds to a bundler-free ES module with
+`wasm-bindgen --target web`; CI compiles it for `wasm32` on every push, and a native test
+module exercises its methods without a JS harness.
+
+The workspace still contains `vigil-sync`, `vigil-transport` and `vigil-insight` as empty
+scaffolding from the pre-cut scope. They build but implement nothing, and they are slated
+for removal. Neither `vigil-sim` nor `vigil-node` depends on any of them: the simulator
+moves objects over the scripted link directly, and the node is a single process with no
+sync layer to wire up.
 
 ## Invariants
 

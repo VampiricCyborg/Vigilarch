@@ -1,0 +1,374 @@
+/* Vigilarch demo page.
+ *
+ * Register: a terminal transcript rendered as a web page. Monospace throughout,
+ * dense, no gloss. The one thing this stylesheet is really for is making an open
+ * window edge look different from a bounded one at a glance — that distinction is
+ * the project's whole point, so it is carried by shape and colour, never by text
+ * alone. */
+
+/* --- tokens: terminal by default, paper under a light-mode preference ------- */
+
+:root {
+  --bg:        #0e1116;
+  --panel:     #151a21;
+  --panel-2:   #1b212a;
+  --rule:      #2a323d;
+  --ink:       #ced5df;
+  --ink-dim:   #8b96a5;
+  --ink-faint: #5c6674;
+
+  --sealed:      #3fb950;
+  --sealed-bg:   #10331a;
+  --unwitnessed: #d9a233;
+  --unwit-bg:    #33280c;
+  --disputed:    #f06a5f;
+  --disputed-bg: #3a1512;
+  --accent:      #6aa9e0;
+
+  --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
+          "DejaVu Sans Mono", "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:        #f7f6f3;
+    --panel:     #ffffff;
+    --panel-2:   #f0eee9;
+    --rule:      #d6d2ca;
+    --ink:       #1c1c1c;
+    --ink-dim:   #5d5a54;
+    --ink-faint: #8b877f;
+
+    --sealed:      #14733a;
+    --sealed-bg:   #e2f2e6;
+    --unwitnessed: #8a5d00;
+    --unwit-bg:    #faefd6;
+    --disputed:    #b32318;
+    --disputed-bg: #fbe3e0;
+    --accent:      #14568f;
+  }
+}
+
+/* --- frame ---------------------------------------------------------------- */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1.25rem 3rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 13px/1.55 var(--mono);
+  max-width: 1180px;
+  margin-inline: auto;
+}
+
+h1, h2 { font-weight: 600; letter-spacing: -0.01em; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+code { color: var(--ink); background: var(--panel-2); padding: 0 .25em; border-radius: 2px; }
+
+/* --- explanatory strip ---------------------------------------------------- */
+
+.strip {
+  padding: 1.75rem 0 1.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.strip h1 { margin: 0 0 .75rem; font-size: 1.15rem; }
+.strip h1 .sub { color: var(--ink-faint); font-weight: 400; }
+
+.strip p {
+  margin: 0 0 .6rem;
+  max-width: 76ch;
+  color: var(--ink-dim);
+}
+
+.strip b { color: var(--ink); }
+.k-sealed      { color: var(--sealed); }
+.k-unwitnessed { color: var(--unwitnessed); }
+
+.links { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: .9rem; font-size: 12px; }
+
+/* --- controls ------------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.field { display: flex; flex-direction: column; gap: .3rem; flex: 1 1 24rem; }
+.field span { font-size: 11px; color: var(--ink-faint); text-transform: lowercase; }
+
+input[type="text"], select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: .4rem .55rem;
+}
+input[type="text"] { width: 100%; }
+input[type="text"]:focus-visible, select:focus-visible,
+button:focus-visible, li:focus-visible, .log:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.buttons { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.equiv { display: inline-flex; gap: .3rem; align-items: center; }
+
+button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: .4rem .7rem;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--ink-faint); }
+button:disabled { opacity: .38; cursor: not-allowed; }
+button.danger:not(:disabled) { color: var(--disputed); border-color: var(--disputed); }
+button.secondary { color: var(--ink-faint); background: transparent; margin-left: auto; }
+
+/* --- chains --------------------------------------------------------------- */
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  padding: 1.25rem 0;
+  align-items: start;
+}
+
+.nodes { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-width: 0; }
+
+.node {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: .75rem .85rem 1rem;
+  min-width: 0;
+}
+
+.node h2 { margin: 0 0 .1rem; font-size: .95rem; }
+.pubkey { color: var(--ink-faint); font-weight: 400; font-size: 11px; }
+
+.quarantine-banner {
+  margin: .5rem 0 .1rem;
+  padding: .35rem .5rem;
+  font-size: 11px;
+  color: var(--disputed);
+  background: var(--disputed-bg);
+  border-left: 3px solid var(--disputed);
+}
+
+.chain { list-style: none; margin: .75rem 0 0; padding: 0; }
+
+.chain li {
+  padding: .4rem .5rem;
+  margin-bottom: .3rem;
+  border: 1px solid var(--rule);
+  border-left-width: 3px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+/* Hover and selection must not touch the left rule — that edge carries the
+ * sealed / unwitnessed / disputed state and may never be repainted by a
+ * transient interaction. */
+.chain li:hover {
+  border-top-color: var(--ink-faint);
+  border-right-color: var(--ink-faint);
+  border-bottom-color: var(--ink-faint);
+}
+.chain li[aria-selected="true"] {
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  border-bottom-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Sealed / unwitnessed carried on the left rule as well as in the badge. */
+.chain li.st-sealed      { border-left-color: var(--sealed); }
+.chain li.st-unwitnessed { border-left-color: var(--unwitnessed); }
+.chain li.st-disputed    { border-left-color: var(--disputed); background: var(--disputed-bg); }
+
+.row-head {
+  display: flex;
+  gap: .5rem;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.row-head .seq { color: var(--ink-dim); }
+.row-head .id  { color: var(--ink); }
+.row-head .badge { margin-left: auto; }
+.row-text { margin-top: .2rem; color: var(--ink); word-break: break-word; }
+.row-prev { font-size: 11px; color: var(--ink-faint); margin-top: .15rem; }
+
+.badge {
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: .05rem .3rem;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+.badge.sealed      { color: var(--sealed);      background: var(--sealed-bg); }
+.badge.unwitnessed { color: var(--unwitnessed); background: var(--unwit-bg); }
+.badge.disputed    { color: var(--disputed);    background: var(--disputed-bg); }
+.badge.fork        { color: var(--disputed);    background: var(--disputed-bg); }
+
+.empty { color: var(--ink-faint); font-size: 12px; margin: .5rem 0 0; }
+
+/* --- detail panel --------------------------------------------------------- */
+
+.detail {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: .75rem .85rem 1rem;
+  position: sticky;
+  top: .75rem;
+  min-width: 0;
+}
+.detail h2 { margin: 0 0 .6rem; font-size: .95rem; }
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .45rem .55rem;
+  border-radius: 3px;
+  font-weight: 600;
+  letter-spacing: .03em;
+}
+.verdict.sealed      { color: var(--sealed);      background: var(--sealed-bg); }
+.verdict.unwitnessed { color: var(--unwitnessed); background: var(--unwit-bg); }
+.verdict.disputed    { color: var(--disputed);    background: var(--disputed-bg); }
+.verdict .glyph { font-size: 1rem; line-height: 1; }
+
+.kv { margin: .8rem 0 0; display: grid; grid-template-columns: max-content 1fr; gap: .25rem .75rem; }
+.kv dt { color: var(--ink-faint); font-size: 11px; }
+.kv dd { margin: 0; word-break: break-all; }
+.kv dd.none { color: var(--ink-faint); }
+
+.detail-note {
+  margin: .9rem 0 0;
+  padding-top: .7rem;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-dim);
+  font-size: 11.5px;
+}
+
+/* --- the unwitnessed window ----------------------------------------------- */
+/* An open edge fades out and is dashed; a bounded edge is a solid cap. The two
+ * must not be mistaken for one another at a glance. */
+
+.window { margin-top: .9rem; }
+.window h3 { margin: 0 0 .45rem; font-size: 11px; color: var(--ink-faint); font-weight: 400; }
+
+.window-bar { display: flex; align-items: stretch; height: 26px; }
+
+.cap {
+  width: 10px;
+  flex: none;
+  border-top: 2px solid;
+  border-bottom: 2px solid;
+}
+.cap.bounded  { border-color: var(--sealed); }
+.cap.open     { border-color: var(--unwitnessed); }
+.cap.left.bounded  { border-left: 4px solid var(--sealed); }
+.cap.right.bounded { border-right: 4px solid var(--sealed); }
+.cap.left.open  { border-left: 2px dashed var(--unwitnessed); }
+.cap.right.open { border-right: 2px dashed var(--unwitnessed); }
+
+.track {
+  flex: 1;
+  min-width: 0;
+  border-top: 2px solid var(--ink-faint);
+  border-bottom: 2px solid var(--ink-faint);
+  background: var(--panel-2);
+}
+/* Fade the fill towards whichever side is open, so "unbounded" reads as
+ * unbounded rather than as a tidy interval. */
+.window-bar.open-left  .track { background: linear-gradient(90deg, transparent, var(--unwit-bg) 70%); }
+.window-bar.open-right .track { background: linear-gradient(270deg, transparent, var(--unwit-bg) 70%); }
+.window-bar.open-left.open-right .track {
+  background: linear-gradient(90deg, transparent, var(--unwit-bg) 45%, var(--unwit-bg) 55%, transparent);
+}
+
+.edges { display: flex; justify-content: space-between; gap: 1rem; margin-top: .3rem; font-size: 11px; }
+.edge { max-width: 48%; word-break: break-all; }
+.edge.right { text-align: right; }
+.edge .kind { display: block; letter-spacing: .03em; text-transform: uppercase; font-size: 10px; }
+.edge.bounded .kind { color: var(--sealed); }
+.edge.open    .kind { color: var(--unwitnessed); }
+.edge .what { color: var(--ink-dim); }
+
+/* --- attestation table ---------------------------------------------------- */
+
+.attestations, .log-wrap {
+  border-top: 1px solid var(--rule);
+  padding: 1.1rem 0;
+}
+.attestations h2, .log-wrap h2 { margin: 0 0 .6rem; font-size: .95rem; }
+.count { color: var(--ink-faint); font-weight: 400; font-size: 11px; }
+
+table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule);
+  padding: .25rem .5rem .25rem 0;
+}
+td { padding: .25rem .5rem .25rem 0; border-bottom: 1px solid var(--rule); }
+td.who { color: var(--ink); }
+td.who.quarantined { color: var(--disputed); }
+
+/* --- transcript ----------------------------------------------------------- */
+
+.log {
+  margin: 0;
+  padding: .7rem .8rem;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  max-height: 15rem;
+  overflow: auto;
+  font: inherit;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.log .cmd { color: var(--ink); }
+.log .ok  { color: var(--sealed); }
+.log .warn { color: var(--unwitnessed); }
+.log .err { color: var(--disputed); }
+
+footer {
+  border-top: 1px solid var(--rule);
+  padding-top: 1rem;
+  color: var(--ink-faint);
+  font-size: 11.5px;
+}
+footer p { max-width: 76ch; margin: 0; }
+
+/* --- narrow ---------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+  .detail { position: static; }
+}
+@media (max-width: 620px) {
+  .nodes { grid-template-columns: 1fr; }
+  button.secondary { margin-left: 0; }
+}

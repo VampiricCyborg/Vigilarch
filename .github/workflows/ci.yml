@@ -93,10 +93,14 @@ jobs:
 
       - name: PWA-target crates build
         # wasm32-unknown-unknown is what vigil-wasm ships to the field app.
-        # vigil-ledger is built here because invariant I2 requires the ledger
-        # and its attestation logic to stay WASM-compilable — which is why
-        # rusqlite sits behind the off-by-default `sqlite` feature and the
-        # pure-Rust MemoryStore is always available.
+        # vigil-core and vigil-ledger are built here because invariant I2
+        # requires the ledger and its attestation logic to stay WASM-compilable
+        # — which is why rusqlite sits behind the off-by-default `sqlite` feature
+        # and the pure-Rust MemoryStore is always available. vigil-wasm is the
+        # wasm-bindgen wrapper that actually runs that ledger in the browser;
+        # building it here keeps it from silently bit-rotting the way the
+        # original empty stub did (known defect #3).
         run: |
           cargo build -p vigil-core --target wasm32-unknown-unknown
           cargo build -p vigil-ledger --target wasm32-unknown-unknown
+          cargo build -p vigil-wasm --target wasm32-unknown-unknown
