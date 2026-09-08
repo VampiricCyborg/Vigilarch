@@ -40,6 +40,262 @@ Stated up front, because a guarantee that is not stated precisely is not a guara
   (2002). The contribution here is the application to disconnected incident reporting,
   the honest surfacing of what is *not* known, and the measurement — not the primitives.
 
+## Demo
+
+One script runs the whole thesis end to end on one machine, using only what v1 ships —
+no cross-process networking between nodes, because that needs `vigil-sync` (v2):
+
+```
+./demo.sh          # needs a Rust toolchain and curl
+```
+
+It has six steps, each preceded by narration explaining the property it demonstrates
+and the spec section it comes from:
+
+1. **honest partition** (`vigil-sim`) — two nodes meet offline; from the far node's
+   ledger alone, `bracket(O0)` is **sealed** by the attestation `U`, with the window
+   left honestly open below to genesis. `spec/02` §5.2, §8.1.
+2. **equivocation** (`vigil-sim`) — one key signs two irreconcilable entries; the fork
+   is caught, one self-verifying `ForkProof` is produced, the author is quarantined,
+   and the withheld sibling is never sealed. `spec/02` §6, §6.4–6.5; ADR-0003.
+3. **export** (`vigil-ledger`) — `export_pack` over step 1's resulting store, the same
+   path `testdata/packs/` fixtures come from, emits a real evidence pack (`O0` plus
+   `U`). `spec/03` §2–§4.
+4. **verify, honest** (`vigil-verify`) — an independent re-check that links only
+   `vigil-core`: re-parses the pack, rebuilds the chain and DAG, recomputes the
+   bracket. Exit 0, `SEALED`, witness depth 1. `spec/03` §5.
+5. **verify, tampered** (`vigil-verify`) — the same tool against
+   `testdata/packs/t2-resigned-genesis.vgl`, a validly re-signed genesis. Exit 1,
+   chain `VIOLATED`, `BrokenLink` at seq 1, attributed to the author key. A pass here
+   would mean the tamper detection had broken. `spec/03` §6.5 T2.
+6. **the runnable server** (`vigil-node`) — separate from the rest and making *no*
+   sealed claim: starts a real HTTP node, `POST`s one observation, reads its
+   provenance back. A lone node holds no attestations, so it correctly reports the
+   record **unwitnessed** with the window open both ways.
+
+Steps 1–5 are deterministic from seed 1. Step 6's node mints a fresh key on start, so
+its node key and record id differ each run; its verdict (`unwitnessed`, window open
+both ways) does not.
+
+<details>
+<summary>Captured transcript (<code>./demo.sh</code>, verbatim)</summary>
+
+```
+════════════════════════════════════════════════════════════════════
+STEP 1 — honest partition: a meeting is the proof of time
+════════════════════════════════════════════════════════════════════
+
+Two nodes, no network. Node A writes observation O0 while disconnected. A and B
+meet: B co-signs A's current chain head as attestation U, and A embeds U in its
+next entry. From B's ledger alone, bracket(O0) is SEALED by U — proof O0 existed
+no later than the meeting — with the unwitnessed window left honestly open below
+to genesis, because nothing proves O0 did not exist earlier.
+  spec/02 §5.2 (sealing theorem), §8.1 (upper bound only).
+vigil-sim run report
+seed: 1
+node A key: 4bb675de4f6376ab61737033d701560e4434be1d6736562ae29b8835b763cd24
+node B key: 810f94d89039eee11d927f71e2a9e4550cbda306d4cd8e5acf6020885ed381a1
+[t=1000] A appends O0 seq=0 id=05d7efd83a39
+[t=2000] A offers checkpoint head=05d7efd83a39 seq=0 id=8b81ec69a258
+[t=2000] B declines checkpoint (empty chain)
+[t=2000] B attests A@0 -> U id=77df7dc2d721 (witness B)
+[t=2000] O0 relayed A->B
+[t=3000] A appends O1 seq=1 acks=[77df7dc2d721] id=a8c8ce637cf5; O1 relayed A->B
+bracket(O0) from B's ledger:
+  sealed: true
+  upper bound: U id=77df7dc2d721
+  lower bound: none
+  witness depth: 1
+  unwitnessed window: [genesis, U id=77df7dc2d721]
+INVARIANT ok: O0 is sealed from B's view by U, window open below to genesis (spec/02 §8.1)
+
+════════════════════════════════════════════════════════════════════
+STEP 2 — equivocation: two stories from one key, caught
+════════════════════════════════════════════════════════════════════
+
+The same author signs two irreconcilable entries at seq 1 and lets an honest
+witness see only one of them. Once a verifier ends up holding both, verify_chain
+convicts the author and detect_forks emits exactly one self-verifying ForkProof.
+Quarantine then changes only what that key's *own* attestations buy going
+forward: an honest witness's earlier attestation of the branch it actually saw
+is not retroactively undone, and the withheld sibling entry is never sealed.
+  spec/02 §6 (fork detection), §6.4–6.5 (quarantine semantics); ADR-0003.
+vigil-sim equivocation scenario
+seed: 1
+node A key: 4bb675de4f6376ab61737033d701560e4434be1d6736562ae29b8835b763cd24 (equivocating author + honest witness)
+node B key: 810f94d89039eee11d927f71e2a9e4550cbda306d4cd8e5acf6020885ed381a1 (honest witness)
+node C key: 003a11215155f4d445aa6302b45f979079bf3b4e087c9896870e098ab679ccc9 (honest, one entry)
+
+step 1: A appends O0 seq=0 id=05d7efd83a39
+        A appends O1 seq=1 prev=O0 id=b9a4e7e1adbd
+step 2: A equivocates -> O1' seq=1 prev=O0 id=d7224df9074f (distinct body, distinct id)
+  [PASS] O1 and O1' are distinct signed objects
+step 3: B attests A@1 -> O1 id=7dcfd55749cd (B never saw O1'; a witness cannot know a sibling exists)
+step 4: C appends C0 seq=0 id=3bb6858e43dc
+        A witnesses C0 -> attestation id=75f871c9615e (A lies on its own chain, but this record is honest)
+
+step 5: verify_chain(world, A)
+        verdict: Violated([Equivocation { author: PubKey(4bb675de…), seq: 1, entries: [Hash(b9a4e7e1…), Hash(d7224df9…)] }])
+  [PASS] reports Violated
+  [PASS] names A and both O1, O1' at seq=1
+
+step 6: detect_forks(world), called twice
+  [PASS] run is idempotent (identical proof lists)
+  [PASS] exactly one ForkProof
+        proof convicts key: 4bb675de4f6376ab61737033d701560e4434be1d6736562ae29b8835b763cd24
+  [PASS] the proof convicts A
+
+step 7: Quarantine::apply(proof)
+  [PASS] A was newly quarantined
+  [PASS] quarantine now contains A
+
+step 8: Dag::build(world, &Quarantine::new())  [empty quarantine]
+  [PASS] C0 is sealed by A's honest attestation
+  [PASS] C0's upper bound is A's attestation of C0
+  [PASS] O1 (the branch B saw) is sealed by B
+  [PASS] O1' (the withheld sibling) is NOT sealed, despite sharing A's chain and seq with sealed O1
+
+step 9: Dag::build(world, &quarantine)  [A quarantined; identical held objects]
+  [PASS] C0 is NO LONGER sealed — A's attestations stop counting once A is convicted (spec/02 §6.5)
+  [PASS] O1 stays sealed by B — a liar's later conviction does not unseal what an honest witness attested (spec/02 §6.5)
+
+INVARIANT ok: equivocation is convicted, the sibling is never sealed, and quarantine changes only what a convicted key's attestations buy going forward (spec/02 §6.5)
+
+════════════════════════════════════════════════════════════════════
+STEP 3 — export: package step 1's result as portable evidence
+════════════════════════════════════════════════════════════════════
+
+vigil-ledger's export_pack — the exact path testdata/packs/ fixtures come from,
+which CI regenerates and byte-diffs — run over node B's store from step 1. The
+pack is the minimal object set the claim follows from: O0 and the attestation U.
+Reading it back needs no database, no node, and no network.
+  spec/03 §2–§4.
+pack: exported 515 bytes to target/demo/honest.vgl (claim O0 05d7efd83a39b5e3c6395135ee96f933b6b207c045bca75bd2a7e3a35ef7b457)
+verify:       vigil-verify target/demo/honest.vgl d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737
+
+════════════════════════════════════════════════════════════════════
+STEP 4 — verify the honest pack independently
+════════════════════════════════════════════════════════════════════
+
+vigil-verify links only vigil-core. It re-parses the pack, re-checks every
+signature, rebuilds the chain and the attestation DAG, and recomputes the
+bracket from scratch — a second implementation of the verification path, not a
+call back into the code that built the pack. No database, no node.
+Expected: exit 0, SEALED, witness depth 1, upper bound U.
+  spec/03 §5.
+vigil-verify — spec/03-export-pack.md §5
+
+  pack   515 bytes
+  org    d04ab232…78737  (matches argument)
+  wire   1
+
+  [1] envelope            OK
+  [2] object self-check   2/2 passed
+  [3] fork proofs         none
+  [4] chains
+        4bb675de…3cd24 Verified
+  [5] attestation DAG     1 attestation(s) carried
+  [6] claims
+
+    05d7efd8…7b457
+      status       SEALED
+      upper bound  attestation 77df7dc2…cc5de  (witness depth 1)
+      lower bound  none
+      window       [genesis, attestation 77df7dc2…cc5de]
+
+RESULT: PASS — every claim reproduced from the pack's own evidence.
+exit: 0  (0 = every claim reproduced from the pack's own evidence)
+
+════════════════════════════════════════════════════════════════════
+STEP 5 — verify a tampered pack: the detection has to fire
+════════════════════════════════════════════════════════════════════
+
+testdata/packs/t2-resigned-genesis.vgl replaces the genesis entry with a validly
+re-signed one (hlc counter 1, not 0). Every carried object self-checks — the
+signature is real — but A@1.prev no longer matches the held predecessor, so the
+hash chain does not close. This is an attributable finding against a specific
+key, not an ambiguous error.
+Expected: exit 1, chain VIOLATED, BrokenLink at seq 1, attributed to the author.
+A "success" here would mean the tamper detection had broken.
+  spec/03 §6.5 T2; spec/04 (threat model).
+vigil-verify — spec/03-export-pack.md §5
+
+  pack   775 bytes
+  org    d04ab232…78737  (matches argument)
+  wire   1
+
+  [1] envelope            OK
+  [2] object self-check   3/3 passed
+  [3] fork proofs         none
+  [4] chains
+        03a107bf…531b8 VIOLATED
+          BrokenLink at seq 1: entry 89c08f4d…d7817 claims prev 7431f38e…aac1d, held predecessor is 7ecd2314…de718
+  [5] attestation DAG     1 attestation(s) carried
+  [6] claims
+
+    7431f38e…aac1d
+      status       UNVERIFIABLE — no carried observation has this id, and every carried object self-checked — the chain was re-signed (spec/03 §6.5 T2)
+
+RESULT: FAIL — a chain integrity finding is attributable to an author key; 1 claim(s) could not be bracketed
+exit: 1  (1 = tamper detected)
+
+════════════════════════════════════════════════════════════════════
+STEP 6 — the runnable server  (this step makes NO sealed claim)
+════════════════════════════════════════════════════════════════════
+
+Everything above is a simulated meeting. This step is different in kind: it
+starts vigil-node as a real HTTP server a person could actually run, POSTs one
+observation, and reads its provenance back. A lone node has met no one, so it
+holds no attestations — and it correctly reports the record UNWITNESSED, with
+the window open in BOTH directions. That honest "I cannot vouch for when this
+happened" is the correct output, not a gap: cross-node sealing needs vigil-sync
+(v2). The chain itself still verifies — internal integrity and sealing in time
+are different properties.
+$ curl -s http://127.0.0.1:8799/health
+{
+  "chain_len": 0,
+  "node_pubkey": "8568deab3ffec2b236f185e32816679e51f8a9ca9e1e03af9dfe312d1e748c2f",
+  "status": "ok"
+}
+
+$ curl -s -XPOST --data 'shoring on grid B4 is out of plumb' http://127.0.0.1:8799/obs
+{
+  "id": "0862bc4d7699a726f1950de8067ab78cb806835dd2af33ce5a6edd757961737c",
+  "seq": 0
+}
+
+$ curl -s http://127.0.0.1:8799/obs/0862bc4d7699a726f1950de8067ab78cb806835dd2af33ce5a6edd757961737c/provenance
+{
+  "author": "8568deab3ffec2b236f185e32816679e51f8a9ca9e1e03af9dfe312d1e748c2f",
+  "chain_verification": "verified",
+  "disputed": false,
+  "lower_bound": null,
+  "observation": "0862bc4d7699a726f1950de8067ab78cb806835dd2af33ce5a6edd757961737c",
+  "sealed": false,
+  "seq": 0,
+  "unwitnessed_window": {
+    "lower": "genesis",
+    "upper": "verification-moment"
+  },
+  "upper_bound": null,
+  "witness_depth": 0
+}
+
+════════════════════════════════════════════════════════════════════
+DEMO COMPLETE
+════════════════════════════════════════════════════════════════════
+
+Steps 1, 2, 4 passed; step 5 correctly FAILED verification (exit 1); step 6
+served a live node that honestly reported its lone record as unwitnessed.
+
+A record written offline by an untrusted actor was shown to a third party with a
+defensible, independently checkable claim about when it was created — and a
+backdated one was caught and attributed — with no central authority, no
+consensus, and no assumption of connectivity.
+```
+
+</details>
+
 ## Status
 
 **M0 done; M1 (entanglement) core landed.** The wire format is specified and `vigil-core`
@@ -252,6 +508,7 @@ crates/
 spec/             the protocol specifications — stricter review than code
 docs/             design document, reality brief, ADRs
 testdata/         golden wire vectors, seeded scenarios
+demo.sh           the end-to-end demo (see "Demo" above)
 ```
 
 `vigil-verify` depends only on `vigil-core` — not `vigil-ledger`, not as a dependency and
@@ -339,10 +596,12 @@ rustup default stable-x86_64-pc-windows-gnu
 Then:
 
 ```
+./demo.sh                                       # the whole thesis end to end (needs curl); transcript under "Demo" above
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p vigil-core --example gen_vectors   # regenerates golden vectors; must be a no-op
 cargo run -p vigil-sim -- --scenario minimal --seed 1          # minimal entanglement scenario; same seed, same transcript
+cargo run -p vigil-sim -- --scenario minimal --seed 1 --export-pack pack.vgl  # + export an evidence pack from the run
 cargo run -p vigil-sim -- --scenario equivocation --seed 1     # equivocation + quarantine ablation
 cargo run -p vigil-sim -- --scenario sealing-ablation --seed 1 # one honest chain, with vs. without a single attestation
 cargo run -p vigil-sim --release -- --scale-up --seeds 1000    # every scenario over 1000 seeds; nonzero exit on any failing seed

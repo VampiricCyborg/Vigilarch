@@ -122,6 +122,15 @@ fn short(h: &Hash) -> String {
 pub struct RunReport {
     pub text: String,
     pub sealed_ok: bool,
+    /// Node B's ledger as it stands at the end of the run — the object set a
+    /// third party assembling an evidence pack actually holds (`O0`, `O1`, and
+    /// the attestation `U`). Exposed so the demo (`--export-pack`) can emit a
+    /// pack from the very scenario it just printed, through `vigil-ledger`'s
+    /// real `export_pack` path, rather than a side fixture. The scale-up runner
+    /// ignores it.
+    pub b_store: MemoryStore,
+    /// `O0`'s content address — the genesis observation a demo pack claims.
+    pub o0_id: Hash,
 }
 
 /// Run the scenario at `seed` and return its transcript.
@@ -246,7 +255,12 @@ pub fn run(seed: u64) -> RunReport {
         if sealed_ok { "ok" } else { "VIOLATED" }
     );
 
-    RunReport { text: t, sealed_ok }
+    RunReport {
+        text: t,
+        sealed_ok,
+        b_store: b.store,
+        o0_id,
+    }
 }
 
 fn window_edge(e: &WindowEdge) -> String {

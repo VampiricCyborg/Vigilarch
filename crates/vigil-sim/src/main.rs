@@ -34,6 +34,16 @@
 //! cargo run -p vigil-sim -- --scenario sealing-ablation --seed 1
 //! ```
 //!
+//! ## Exporting a pack from the run
+//!
+//! `--scenario minimal --export-pack <path>` runs the honest scenario and then
+//! writes an evidence pack for `O0` from node B's resulting store, through
+//! `vigil-ledger`'s real [`export_pack`] — the same path `testdata/packs/`
+//! fixtures come from. It prints the org key and the exact `vigil-verify` line
+//! to run against the file. This is what `demo.sh` uses to join the simulated
+//! meeting to the independent verifier. Only the `minimal` scenario ends with a
+//! store that seals a record, so the flag is rejected for the others.
+//!
 //! ## Scale-up
 //!
 //! `--scale-up [--seeds N]` runs every scenario once per seed in `0..N`
@@ -46,9 +56,20 @@
 //! cargo run -p vigil-sim --release -- --scale-up --seeds 1000
 //! ```
 
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use anyhow::Context as _;
+use ed25519_dalek::SigningKey;
+use vigil_core::{Hash, public_key};
+use vigil_ledger::{MemoryStore, Quarantine, export_pack};
 use vigil_sim::{equivocation, scale, sealing_ablation, sim};
+
+/// The org identity every export pack in this repository is labelled with: the
+/// `spec/03-export-pack.md` §6.1 worked-example org key, seed `0x11…11`. The
+/// demo reuses it so `vigil-verify` is handed the same key a reader already
+/// meets in `spec/03` and `testdata/README.md`.
+const DEMO_ORG_SEED: [u8; 32] = [0x11; 32];
 
 /// Which scenario to run in single mode.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -61,13 +82,20 @@ enum Scenario {
 /// What the binary was asked to do.
 enum Mode {
     /// Run one scenario at one seed and print its transcript.
-    Single { scenario: Scenario, seed: u64 },
+    Single {
+        scenario: Scenario,
+        seed: u64,
+        /// `--export-pack <path>`: after the transcript, export an evidence pack
+        /// for `O0` from the honest scenario's resulting store. Only valid for
+        /// `--scenario minimal`.
+        export_pack: Option<PathBuf>,
+    },
     /// Run every scenario across `0..seeds` and print the aggregate.
     ScaleUp { seeds: u64 },
 }
 
 const USAGE: &str = "usage:\n  \
-    vigil-sim --scenario minimal|equivocation|sealing-ablation --seed <n>\n  \
+    vigil-sim --scenario minimal|equivocation|sealing-ablation --seed <n> [--export-pack <path>]\n  \
     vigil-sim --scale-up [--seeds <n>]";
 
 fn main() -> ExitCode {
@@ -81,27 +109,41 @@ fn main() -> ExitCode {
     };
 
     match mode {
-        Mode::Single { scenario, seed } => run_single(scenario, seed),
+        Mode::Single {
+            scenario,
+            seed,
+            export_pack,
+        } => run_single(scenario, seed, export_pack.as_deref()),
         Mode::ScaleUp { seeds } => run_scale_up(seeds),
     }
 }
 
-fn run_single(scenario: Scenario, seed: u64) -> ExitCode {
-    let (text, ok) = match scenario {
+fn run_single(scenario: Scenario, seed: u64, export_pack_path: Option<&Path>) -> ExitCode {
+    // Only the minimal scenario ends with a store that seals a record, so it is
+    // the only one `--export-pack` accepts; parse_args has already rejected the
+    // flag for the others.
+    let (text, ok, pack_source) = match scenario {
         Scenario::Minimal => {
             let r = sim::run(seed);
-            (r.text, r.sealed_ok)
+            (r.text, r.sealed_ok, Some((r.b_store, r.o0_id)))
         }
         Scenario::Equivocation => {
             let r = equivocation::run(seed);
-            (r.text, r.passed)
+            (r.text, r.passed, None)
         }
         Scenario::SealingAblation => {
             let r = sealing_ablation::run(seed);
-            (r.text, r.passed)
+            (r.text, r.passed, None)
         }
     };
     print!("{text}");
+
+    if let (Some(path), Some((store, claim))) = (export_pack_path, pack_source) {
+        if let Err(e) = write_demo_pack(&store, claim, path) {
+            eprintln!("vigil-sim: --export-pack failed: {e:#}");
+            return ExitCode::FAILURE;
+        }
+    }
 
     if ok {
         ExitCode::SUCCESS
@@ -109,6 +151,26 @@ fn run_single(scenario: Scenario, seed: u64) -> ExitCode {
         eprintln!("invariant violation: an assertion in the scenario did not hold");
         ExitCode::FAILURE
     }
+}
+
+/// Export an evidence pack for `claim` from `store` via `vigil-ledger`'s real
+/// [`export_pack`] — the same path `testdata/packs/` fixtures come from — and
+/// write it to `path`. Prints the org key and the `vigil-verify` line to run.
+fn write_demo_pack(store: &MemoryStore, claim: Hash, path: &Path) -> anyhow::Result<()> {
+    let org = public_key(&SigningKey::from_bytes(&DEMO_ORG_SEED));
+    let pack = export_pack(store, &Quarantine::new(), org, &[claim])
+        .context("export_pack over node B's store")?;
+    std::fs::write(path, &pack).with_context(|| format!("writing {}", path.display()))?;
+
+    println!();
+    println!(
+        "pack: exported {} bytes to {} (claim O0 {claim})",
+        pack.len(),
+        path.display()
+    );
+    println!("pack org key: {org}");
+    println!("verify:       vigil-verify {} {org}", path.display());
+    Ok(())
 }
 
 fn run_scale_up(seeds: u64) -> ExitCode {
@@ -127,16 +189,18 @@ fn run_scale_up(seeds: u64) -> ExitCode {
 /// Order-independent argument parsing.
 ///
 /// - `--scenario <name>` + `--seed <n>` selects single mode (defaults:
-///   `minimal`, seed `1`).
+///   `minimal`, seed `1`). `--export-pack <path>` additionally exports an
+///   evidence pack from the run and is only valid with `--scenario minimal`.
 /// - `--scale-up` selects scale-up mode; `--seeds <n>` sets the range
-///   (default `1000`). `--scenario` / `--seed` are rejected alongside it rather
-///   than silently ignored.
+///   (default `1000`). `--scenario` / `--seed` / `--export-pack` are rejected
+///   alongside it rather than silently ignored.
 fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
     let mut scenario = Scenario::Minimal;
     let mut seed: u64 = 1;
     let mut scale_up = false;
     let mut seeds: u64 = 1000;
     let mut saw_single_arg = false;
+    let mut export_pack: Option<PathBuf> = None;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -160,6 +224,11 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
                 let raw = args.next().ok_or("--seeds needs a value")?;
                 seeds = raw.parse().map_err(|_| format!("not a u64: {raw}"))?;
             }
+            "--export-pack" => {
+                let raw = args.next().ok_or("--export-pack needs a path")?;
+                export_pack = Some(PathBuf::from(raw));
+                saw_single_arg = true;
+            }
             other => return Err(format!("unexpected argument: {other}")),
         }
     }
@@ -167,7 +236,7 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
     if scale_up {
         if saw_single_arg {
             return Err("--scale-up runs every scenario across a seed range; \
-                        drop --scenario/--seed (use --seeds to set the range)"
+                        drop --scenario/--seed/--export-pack (use --seeds to set the range)"
                 .into());
         }
         if seeds == 0 {
@@ -175,6 +244,15 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<Mode, String> {
         }
         Ok(Mode::ScaleUp { seeds })
     } else {
-        Ok(Mode::Single { scenario, seed })
+        if export_pack.is_some() && scenario != Scenario::Minimal {
+            return Err("--export-pack is only valid with --scenario minimal — \
+                        it is the honest scenario whose resulting store seals a record"
+                .into());
+        }
+        Ok(Mode::Single {
+            scenario,
+            seed,
+            export_pack,
+        })
     }
 }

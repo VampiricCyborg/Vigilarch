@@ -2,6 +2,7 @@
 //! run is byte-identical from a seed (`spec/02-entanglement.md` §9, invariant
 //! I4). The adversarial suite will depend on the second.
 
+use vigil_ledger::{Quarantine, export_pack, parse_pack};
 use vigil_sim::{equivocation, scale, sealing_ablation, sim};
 
 #[test]
@@ -12,6 +13,44 @@ fn the_scenario_seals_the_observation_from_the_far_node() {
         "O0 must be sealed from B's ledger by U, with an open-below window:\n{}",
         report.text
     );
+}
+
+/// The `--export-pack` path: node B's resulting store, run through
+/// `vigil-ledger`'s real `export_pack`, produces a well-formed pack that carries
+/// O0 as its claim, self-checks clean, and is byte-identical from a seed.
+#[test]
+fn the_honest_store_exports_a_verifiable_pack() {
+    let org = vigil_core::public_key(&ed25519_dalek::SigningKey::from_bytes(&[0x11; 32]));
+
+    let report = sim::run(1);
+    let pack = export_pack(&report.b_store, &Quarantine::new(), org, &[report.o0_id])
+        .expect("export the honest store");
+
+    let contents = parse_pack(&pack).expect("the exported pack parses");
+    assert_eq!(contents.wire_version, 1);
+    assert_eq!(contents.org, org);
+    assert_eq!(
+        contents.invalid_object_count, 0,
+        "every carried object self-checks"
+    );
+    assert!(
+        contents.claims.contains(&report.o0_id),
+        "the pack claims O0"
+    );
+    assert_eq!(
+        contents.valid_attestations().count(),
+        1,
+        "the sealing attestation U travels with the pack"
+    );
+
+    let again = export_pack(
+        &sim::run(1).b_store,
+        &Quarantine::new(),
+        org,
+        &[report.o0_id],
+    )
+    .expect("export again");
+    assert_eq!(pack, again, "the pack is byte-identical from a seed");
 }
 
 #[test]
