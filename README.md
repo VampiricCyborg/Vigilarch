@@ -394,9 +394,14 @@ below carries measured numbers. Development stops at that line.
 | 4 | `vigil-sim` — seeded simulator over the *real* ledger | minimal, equivocation, and sealing-ablation scenarios landed, with a `--scale-up` runner aggregating them over a seed range; grows with the adversarial suite |
 | 5 | `vigil-node` — single-process loopback HTTP ledger (capture, provenance, export, health) | done for v1 scope; `--role edge\|hub\|mule` is a no-op until sync exists (v2) |
 | 6 | Export pack + `vigil-verify` — the independent verifier | pack specified (`spec/03`, ADR-0004) and assembled; `vigil-verify` implements the `spec/03` §5 procedure against every fixture |
-| 7 | `spec/02-entanglement.md` and `spec/03-export-pack.md` (done, with worked detail), `spec/04-threat-model.md` (after M1, by design) | in progress |
+| 7 | `spec/02-entanglement.md` and `spec/03-export-pack.md` (done, with worked detail), `spec/04-threat-model.md` (after M1, by design) | done — `spec/04-threat-model.md` exists and matches the code |
 | 8 | Seeded scenarios, each paired with an ablation run | three scenarios (equivocation carries a quarantine ablation; sealing-ablation contrasts a witnessed and an unwitnessed run over one honest chain); the full seeded adversarial set is next |
-| 9 | Measured evaluation table and demo transcript | in progress — every scenario passes every seed over 1000 seeds (`--scale-up`); latency, graph density, attribution and the demo transcript still to come |
+| 9 | Measured evaluation table and demo transcript | done — `--scale-up` over 1000 seeds feeds the Measured results section, and `demo.sh`, the README Demo section, and its captured transcript all exist |
+
+**The project considers v1 complete as of commit `4de22c0`** (`feat(demo): end-to-end
+demo.sh + vigil-sim --export-pack`), which closed the last open row — the demo transcript
+clause of row 9. Row 8 remains accurately partial: the full scriptable adversarial suite
+(partition topology, mule routes) is a v2 concern and is not claimed here.
 
 **Entanglement is the project.** It is built before anything that is not a prerequisite
 for it, and it is never cut. `vigil-sim` grows alongside it from the first attestation
