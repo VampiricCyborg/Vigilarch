@@ -354,3 +354,165 @@ footer p { max-width: 76ch; margin: 0; }
   .nodes { grid-template-columns: 1fr; }
   button.secondary { margin-left: 0; }
 }
+
+/* ===========================================================================
+ * PART TWO — the purple systems pass, demo page.
+ *
+ * The palette moved to a purple-dominant system in base.css, and this page
+ * consumes those tokens, so most of the shift arrives here for free. What is
+ * added below is the part a token cannot carry: the console framing, the glow
+ * on the surfaces that are actually computing something, and the one-shot
+ * flashes app.js plays when the ledger changes state.
+ *
+ * The page's own discipline is unchanged and is not relaxed here:
+ *
+ *   - The left rule of a chain row carries the ledger verdict. No hover, no
+ *     selection and no flash may repaint it.
+ *   - --accent is the system's colour and never a status. Everything purple
+ *     below is a frame, a glow or an affordance.
+ *   - A flash draws attention to a change the ledger made. It never announces
+ *     one, and its colour always agrees with the state that is already there.
+ * =========================================================================== */
+
+/* --- the explanatory strip ------------------------------------------------- */
+
+.strip { position: relative; isolation: isolate; }
+.strip::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -1.5rem -1.5rem 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 90% at 12% 0%, var(--accent-wash), transparent 72%),
+    radial-gradient(46% 70% at 88% 10%, var(--wash-indigo), transparent 76%);
+}
+.strip h1 { letter-spacing: -.015em; }
+.strip .links a { position: relative; text-decoration: none; }
+.strip .links a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--t) var(--ease);
+}
+.strip .links a:hover::after { transform: scaleX(1); }
+
+/* --- controls -------------------------------------------------------------- */
+
+button {
+  transition: border-color var(--t) ease, color var(--t) ease,
+              box-shadow var(--t) ease, background-color var(--t) ease;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent-edge);
+  color: var(--ink-strong);
+  box-shadow: 0 0 20px -8px var(--accent-glow);
+}
+/* The equivocate control keeps its --disputed edge on hover: it is the one
+ * button on the page that causes a violation, and dressing it in the system
+ * colour would understate that. */
+button.danger:hover:not(:disabled) {
+  border-color: var(--disputed);
+  color: var(--disputed);
+  box-shadow: 0 0 20px -8px rgba(255, 91, 78, .5);
+}
+input[type="text"]:focus-visible, select:focus-visible { border-color: var(--accent-edge); }
+
+/* --- the two node panels --------------------------------------------------- */
+
+.node {
+  position: relative;
+  transition: border-color var(--t) ease, box-shadow var(--t) ease;
+}
+.node:hover { border-color: var(--accent-line); }
+.node h2 { display: flex; align-items: baseline; gap: .5rem; }
+
+/* A chain row lifts a little towards the reader on hover, and the lift is on
+ * the transform only — the left rule, which carries the verdict, is untouched. */
+.chain li { transition: transform var(--t) var(--ease), border-color var(--t) ease, box-shadow var(--t) ease; }
+.chain li:hover { transform: translateX(2px); box-shadow: 0 0 22px -14px var(--accent-glow); }
+.chain li[aria-selected="true"] { box-shadow: 0 0 0 1px var(--accent), 0 0 26px -12px var(--accent-glow); }
+
+/* --- the detail panel, raised ----------------------------------------------
+ * This is the one surface on the page showing a computed answer rather than a
+ * held object, so it is the one allowed a halo. */
+
+.detail {
+  box-shadow:
+    0 0 0 1px var(--accent-line),
+    0 18px 44px -30px rgba(0, 0, 0, .9),
+    0 0 60px -30px var(--accent-glow);
+}
+.verdict { position: relative; overflow: hidden; }
+
+/* --- attestation table ------------------------------------------------------ */
+
+#att-table { transition: box-shadow .4s ease; }
+tbody tr { transition: background-color var(--t) ease; }
+tbody tr:hover { background: var(--accent-bg); }
+
+/* --- transcript -------------------------------------------------------------
+ * A console, so it gets a console's frame: a labelled top edge and a prompt
+ * colour that matches the system rather than the states. */
+
+.log {
+  box-shadow: inset 0 0 40px -22px var(--accent-glow);
+  scroll-behavior: smooth;
+}
+.log .cmd { color: var(--accent); }
+
+/* Each line arrives once, and only the newest one moves. Without JavaScript
+ * there are no lines at all, so nothing here can hide content. */
+.log > span {
+  display: block;
+  animation: logline .26s var(--ease) both;
+}
+@keyframes logline {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* --- the one-shot flashes ---------------------------------------------------
+ * Played by app.js after a re-render, on elements the render has already put
+ * into the state the flash refers to. Each colour agrees with the state that is
+ * already on the element:
+ *
+ *   fx-append   an object was written or exchanged      --accent
+ *   fx-sealed   a record the ledger now reports sealed  --sealed
+ *   fx-fork     a proven equivocation                   --disputed
+ */
+
+@keyframes fx-append {
+  0%   { box-shadow: 0 0 0 1px var(--accent), 0 0 26px -4px var(--accent-glow); }
+  100% { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent; }
+}
+@keyframes fx-sealed {
+  0%   { box-shadow: 0 0 0 1px var(--sealed), 0 0 26px -4px rgba(53, 209, 107, .55); }
+  100% { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent; }
+}
+/* Three beats rather than a fade: a violation is the one event on this page
+ * that should not slide past unnoticed. */
+@keyframes fx-fork {
+  0%, 30%, 60%  { box-shadow: 0 0 0 1px var(--disputed), 0 0 24px -4px rgba(255, 91, 78, .6); }
+  15%, 45%, 100% { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent; }
+}
+
+.fx-append { animation: fx-append .85s ease-out; }
+.fx-sealed { animation: fx-sealed 1.1s ease-out; }
+.fx-fork   { animation: fx-fork 1.25s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .log > span { animation: none; }
+  .fx-append, .fx-sealed, .fx-fork { animation: none; }
+  .chain li:hover { transform: none; }
+}
+
+/* --- footer ------------------------------------------------------------------ */
+
+footer { border-top-color: var(--accent-line); }

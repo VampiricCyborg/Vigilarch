@@ -1,27 +1,37 @@
 /* Vigilarch — shared tokens and site chrome.
  *
  * Linked by both pages: index.html (the landing page) and demo.html (the
- * interactive dashboard). The dashboard's palette came first and is the
- * project's system; this file is that palette lifted out of style.css so the
- * landing page cannot drift from it, plus the few tokens the landing page adds
- * and the header bar the two pages share.
+ * interactive dashboard). One palette, so the two pages cannot drift apart.
  *
- * Two rules the state colours are held to:
+ * ---------------------------------------------------------------------------
+ * The colour contract. Read this before changing a hex value.
+ * ---------------------------------------------------------------------------
  *
- *   1. --sealed / --unwitnessed / --disputed encode STATE and nothing else: a
- *      ledger verdict, or in two places the page's own (a failed module load is
- *      --disputed, an open gap in the checklist is --unwitnessed, because that
- *      colour already means "not covered" here). They are never spent on
- *      decoration, emphasis or hierarchy.
- *   2. --accent is the structural colour — links, focus rings, interactive
- *      affordances. It is deliberately not one of the three above, so that
- *      "this is clickable" can never be misread as "this is sealed".
+ *   1. --sealed / --unwitnessed / --disputed encode LEDGER STATE and nothing
+ *      else: green is a verified or sealed verdict, amber is uncertainty — an
+ *      unwitnessed record, an open window edge, an open gap in the checklist —
+ *      and red is a violation: tampering, a fork, a quarantined key. They are
+ *      never spent on decoration, emphasis or hierarchy, on either page.
  *
- * The accent is an indigo-violet. It was picked over teal on rule 2 alone:
- * teal sits close enough to --sealed that a hovered control and a sealed
- * verdict could be confused at a glance, and that is the one confusion this
- * palette cannot afford. Violet collides with nothing in the state set, and
- * two entangled histories is roughly what it is standing in for.
+ *   2. --accent is the SYSTEM's own colour — Vigilarch itself, the structure of
+ *      the page, links, focus rings, diagrams, interactive affordances. It is
+ *      purple, it is dominant, and it is never a status. "This is clickable"
+ *      and "this is cryptographic machinery" may share a colour; "this is
+ *      clickable" and "this is sealed" may not.
+ *
+ * The accent is purple rather than teal on rule 2 alone: teal sits close enough
+ * to --sealed that a hovered control and a sealed verdict could be confused at
+ * a glance, and that is the one confusion this palette cannot afford. Purple
+ * collides with nothing in the state set.
+ *
+ * Because purple is now the dominant hue rather than a light accent, the three
+ * state colours were re-picked against the purple grounds rather than against
+ * the old near-neutral ones: the green was pushed towards emerald, the amber
+ * towards a warmer yellow and the red away from salmon, so that none of the
+ * three can read as "purple with a tint" on --panel or --panel-2. The magenta
+ * that appears in the hero and section washes is a BACKGROUND value only, held
+ * under 10% alpha, and never becomes a foreground colour — that is what keeps
+ * it from competing with --disputed.
  *
  * Dark is the default because the dashboard is a transcript; the light palette
  * is a full second design, not an inversion. */
@@ -31,46 +41,67 @@
    * Three depths, not one. --bg-sunken sits BEHIND the page plane (the
    * ticker), --bg / --bg-deep are the plane itself, and --panel / --panel-2
    * sit in front of it. A surface that means "recessed" and a surface that
-   * means "raised" must not be the same rectangle in two positions. */
-  --bg:        #0a0d12;   /* the page ground, both pages */
-  --bg-deep:   #070910;   /* landing bands that sit behind the measure */
-  --bg-sunken: #05070b;   /* recessed: the ticker rail */
-  --panel:     #141a23;
-  --panel-2:   #1a212b;
-  --rule:      #29313d;   /* a stated border */
-  --hair:      #1b212b;   /* a structural hairline: band separators, grid */
+   * means "raised" must not be the same rectangle in two positions.
+   *
+   * All five carry a violet cast rather than a neutral one, so that a purple
+   * glow laid over them reads as light on the same material instead of as a
+   * sticker. */
+  --bg:        #08070f;   /* the page ground, both pages */
+  --bg-deep:   #0b0916;   /* landing bands that sit behind the measure */
+  --bg-sunken: #050409;   /* recessed: the ticker rail */
+  --panel:     #14111f;
+  --panel-2:   #1b1729;
+  --rule:      #332c49;   /* a stated border */
+  --hair:      #211b31;   /* a structural hairline: band separators, grid */
 
   /* --- ink -------------------------------------------------------------- */
-  --ink:        #ced5df;
-  --ink-strong: #eef2f7;  /* display type only */
-  --ink-dim:    #8b96a5;
-  --ink-faint:  #5c6674;
+  --ink:        #ccccdb;
+  --ink-strong: #f1eef9;  /* display type only */
+  --ink-dim:    #918ea8;
+  --ink-faint:  #635f7a;
 
-  /* --- ledger state ----------------------------------------------------- */
-  --sealed:      #3fb950;
-  --sealed-bg:   #10331a;
-  --unwitnessed: #d9a233;
-  --unwit-bg:    #33280c;
-  --disputed:    #f06a5f;
-  --disputed-bg: #3a1512;
+  /* --- ledger state -----------------------------------------------------
+   * Checked against --panel and --panel-2 with the purple washes over them:
+   * each of the three is unambiguous at a glance and none of them reads as a
+   * tinted purple. */
+  --sealed:      #35d16b;
+  --sealed-bg:   #072d18;
+  --unwitnessed: #ffb224;
+  --unwit-bg:    #332409;
+  --disputed:    #ff5b4e;
+  --disputed-bg: #3b1210;
 
-  /* --- structural accent ------------------------------------------------ */
-  --accent:      #8d8bf7;
-  --accent-bg:   rgba(141, 139, 247, 0.13);
-  --accent-line: rgba(141, 139, 247, 0.26);  /* separators, quiet edges */
-  --accent-glow: rgba(141, 139, 247, 0.30);  /* haloes on raised surfaces */
-  --accent-wash: rgba(141, 139, 247, 0.085); /* the two focal gradients */
+  /* --- the system accent ------------------------------------------------
+   * --accent is the working purple, used for text and 1px lines and therefore
+   * held to a text contrast ratio on --bg. --accent-hi is its higher-contrast
+   * partner, whichever direction that is in the current theme: lavender on
+   * dark, near-indigo on light. --accent-deep is the far end of every gradient
+   * and is a BACKGROUND value only. */
+  --accent:      #a878ff;
+  --accent-hi:   #cbb0ff;
+  --accent-deep: #6533cc;
+
+  --accent-bg:   rgba(168, 120, 255, 0.14);
+  --accent-line: rgba(168, 120, 255, 0.30);  /* separators, quiet edges */
+  --accent-edge: rgba(168, 120, 255, 0.52);  /* a stated purple border */
+  --accent-glow: rgba(168, 120, 255, 0.42);  /* haloes on raised surfaces */
+  --accent-wash: rgba(168, 120, 255, 0.11);  /* the focal gradients */
+
+  /* Background-only companions to the accent, for washes with some movement
+   * in them. Never foreground: the magenta is close enough to --disputed in
+   * hue that a magenta glyph beside a red one would be a real regression. */
+  --wash-magenta: rgba(214, 108, 224, 0.085);
+  --wash-indigo:  rgba(104, 108, 240, 0.10);
 
   /* --- page texture ------------------------------------------------------
    * A sparse dot grid, low enough in contrast to read as paper rather than as
-   * pattern. It is the one piece of decoration on the page and it is at least
-   * about the subject: a lattice of points with nothing joining them until a
-   * meeting does. */
-  --grid-dot:  rgba(150, 168, 210, 0.055);
+   * pattern. It is at least about the subject: a lattice of points with
+   * nothing joining them until a meeting does. */
+  --grid-dot:  rgba(170, 150, 235, 0.065);
   --grid-size: 26px;
 
   /* --- elevation --------------------------------------------------------- */
-  --shadow-lift: 0 18px 44px -22px rgba(0, 0, 0, 0.85);
+  --shadow-lift: 0 18px 44px -22px rgba(0, 0, 0, 0.88);
   --shadow-inset: inset 0 7px 16px -10px rgba(0, 0, 0, 0.95),
                   inset 0 -7px 16px -10px rgba(0, 0, 0, 0.9);
 
@@ -78,44 +109,57 @@
   --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
           "DejaVu Sans Mono", "Liberation Mono", monospace;
   --display: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* --- motion ------------------------------------------------------------
+   * One easing curve for everything that moves, so the page has a single
+   * hand. Fast enough to feel like a response, never a performance. */
+  --ease: cubic-bezier(.22, .61, .36, 1);
+  --t-fast: .16s;
+  --t: .22s;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg:        #f7f6f3;
-    --bg-deep:   #efece6;
-    --bg-sunken: #e6e2da;
+    --bg:        #f8f7fc;
+    --bg-deep:   #f1eff8;
+    --bg-sunken: #e7e3f1;
     --panel:     #ffffff;
-    --panel-2:   #f0eee9;
-    --rule:      #d6d2ca;
-    --hair:      #e3dfd8;
+    --panel-2:   #f3f1fa;
+    --rule:      #d7d2e6;
+    --hair:      #e6e2f1;
 
-    --ink:        #1c1c1c;
-    --ink-strong: #0b0b0b;
-    --ink-dim:    #5d5a54;
-    --ink-faint:  #8b877f;
+    --ink:        #1e1b29;
+    --ink-strong: #0b0912;
+    --ink-dim:    #56536a;
+    --ink-faint:  #837f96;
 
-    --sealed:      #14733a;
-    --sealed-bg:   #e2f2e6;
-    --unwitnessed: #8a5d00;
-    --unwit-bg:    #faefd6;
-    --disputed:    #b32318;
-    --disputed-bg: #fbe3e0;
+    --sealed:      #10703a;
+    --sealed-bg:   #dff2e6;
+    --unwitnessed: #8a5800;
+    --unwit-bg:    #faeed4;
+    --disputed:    #b81f14;
+    --disputed-bg: #fbe2df;
 
-    --accent:      #4a3fbf;
-    --accent-bg:   rgba(74, 63, 191, 0.10);
-    --accent-line: rgba(74, 63, 191, 0.24);
-    --accent-glow: rgba(74, 63, 191, 0.22);
-    --accent-wash: rgba(74, 63, 191, 0.055);
+    --accent:      #6d28d9;
+    --accent-hi:   #4c1d95;
+    --accent-deep: #a878ff;
 
-    --grid-dot:  rgba(60, 55, 90, 0.055);
+    --accent-bg:   rgba(109, 40, 217, 0.10);
+    --accent-line: rgba(109, 40, 217, 0.24);
+    --accent-edge: rgba(109, 40, 217, 0.46);
+    --accent-glow: rgba(109, 40, 217, 0.26);
+    --accent-wash: rgba(109, 40, 217, 0.07);
 
-    --shadow-lift: 0 18px 40px -24px rgba(40, 36, 60, 0.45);
-    --shadow-inset: inset 0 7px 16px -12px rgba(40, 36, 60, 0.38),
-                    inset 0 -7px 16px -12px rgba(40, 36, 60, 0.32);
+    --wash-magenta: rgba(168, 40, 180, 0.055);
+    --wash-indigo:  rgba(60, 64, 200, 0.06);
+
+    --grid-dot:  rgba(80, 55, 150, 0.07);
+
+    --shadow-lift: 0 18px 40px -24px rgba(50, 36, 90, 0.45);
+    --shadow-inset: inset 0 7px 16px -12px rgba(50, 36, 90, 0.38),
+                    inset 0 -7px 16px -12px rgba(50, 36, 90, 0.32);
   }
 }
-
 /* Anchor navigation glides rather than jumps, and stops clear of the sticky
  * bar instead of underneath it. */
 html {
@@ -141,20 +185,22 @@ html {
   padding: 0 1.25rem;
   height: 52px;
   background: color-mix(in srgb, var(--bg) 78%, transparent);
-  backdrop-filter: blur(14px) saturate(1.35);
-  -webkit-backdrop-filter: blur(14px) saturate(1.35);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
   border-bottom: 1px solid var(--hair);
   font: 12px/1 var(--mono);
-  transition: background .25s ease, border-color .25s ease, box-shadow .25s ease;
+  transition: background var(--t) ease, border-color var(--t) ease, box-shadow var(--t) ease;
 }
 
 /* Once the page has moved under it the bar earns a little more presence: a
- * denser ground and a hairline of accent, so it reads as a layer above the
- * content rather than as part of the first section. */
+ * denser ground, a purple hairline and a thin wash of the system colour along
+ * its lower edge, so it reads as a layer above the content rather than as part
+ * of the first section. */
 .sitenav.is-stuck {
   background: color-mix(in srgb, var(--bg) 90%, transparent);
-  border-bottom-color: color-mix(in srgb, var(--accent) 22%, var(--hair));
-  box-shadow: 0 14px 34px -26px rgba(0, 0, 0, 0.95);
+  border-bottom-color: var(--accent-line);
+  box-shadow: 0 14px 34px -26px rgba(0, 0, 0, 0.95),
+              0 1px 12px -6px var(--accent-glow);
 }
 
 /* No color-mix support: fall back to the opaque ground rather than to text
@@ -175,8 +221,8 @@ html {
 /* The mark is the window glyph: two bounded caps with a span between them —
  * the one shape this whole project is about. */
 .mark { display: flex; align-items: center; gap: .5rem; text-decoration: none; color: var(--ink-strong); }
-.mark svg { display: block; overflow: visible; transition: color .2s ease; }
-.mark:hover svg { color: var(--accent); }
+.mark svg { display: block; overflow: visible; transition: color var(--t) ease, filter var(--t) ease; }
+.mark:hover svg { color: var(--accent); filter: drop-shadow(0 0 6px var(--accent-glow)); }
 .mark .wordmark {
   font-family: var(--display);
   font-weight: 700;
@@ -188,14 +234,14 @@ html {
 .navlinks { display: flex; gap: 1.25rem; margin-left: 1rem; }
 
 /* A link says where it goes on hover, and the bar says where you are: the same
- * rule slides in under a hovered link and stays put under the section the page
- * is currently scrolled into. */
+ * rule slides in under a hovered link and stays put, lit, under the section the
+ * page is currently scrolled into. */
 .navlinks a {
   position: relative;
   padding: .35rem 1px;
   color: var(--ink-dim);
   text-decoration: none;
-  transition: color .18s ease;
+  transition: color var(--t-fast) ease;
 }
 .navlinks a::after {
   content: "";
@@ -207,12 +253,15 @@ html {
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left center;
-  transition: transform .22s cubic-bezier(.22, .61, .36, 1);
+  transition: transform var(--t) var(--ease), box-shadow var(--t) ease;
 }
 .navlinks a:hover { color: var(--ink); }
 .navlinks a:hover::after { transform: scaleX(1); }
 .navlinks a.is-active { color: var(--accent); }
-.navlinks a.is-active::after { transform: scaleX(1); }
+.navlinks a.is-active::after {
+  transform: scaleX(1);
+  box-shadow: 0 0 8px 0 var(--accent-glow);
+}
 
 .navcta { display: flex; align-items: center; gap: .9rem; margin-left: auto; }
 .navcta .ghost {
@@ -220,7 +269,7 @@ html {
   color: var(--ink-dim);
   text-decoration: none;
   white-space: nowrap;
-  transition: color .18s ease;
+  transition: color var(--t-fast) ease;
 }
 .navcta .ghost::after {
   content: "";
@@ -232,31 +281,57 @@ html {
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left center;
-  transition: transform .22s cubic-bezier(.22, .61, .36, 1);
+  transition: transform var(--t) var(--ease);
 }
 .navcta .ghost:hover { color: var(--ink); }
 .navcta .ghost:hover::after { transform: scaleX(1); }
 
 /* The one filled control on either page. It is --accent, never a state colour:
- * "clickable" must not be able to read as "sealed". */
+ * "clickable" must not be able to read as "sealed".
+ *
+ * The hover is a directional sweep — a band of light crossing left to right —
+ * rather than a flat brightening, so the button reads as a thing that responds
+ * rather than a rectangle that changes value. It is a ::before behind the
+ * label, so it can never obscure the text. */
 .btn-primary {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   gap: .5rem;
   padding: .5rem .85rem;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-edge);
   border-radius: 3px;
   background: var(--accent-bg);
   color: var(--accent);
   text-decoration: none;
   white-space: nowrap;
-  transition: background .2s ease, box-shadow .2s ease, transform .2s ease;
+  transition: border-color var(--t) ease, box-shadow var(--t) ease,
+              transform var(--t) ease, color var(--t) ease;
+}
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(100deg,
+    transparent 0%,
+    var(--accent-bg) 35%,
+    color-mix(in srgb, var(--accent) 30%, transparent) 50%,
+    var(--accent-bg) 65%,
+    transparent 100%);
+  transform: translateX(-100%);
+  transition: transform .5s var(--ease);
 }
 .btn-primary:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  box-shadow: 0 8px 22px -10px var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent-hi);
+  box-shadow: 0 10px 26px -12px var(--accent-glow),
+              0 0 0 1px var(--accent-line);
   transform: translateY(-1px);
 }
+.btn-primary:hover::before { transform: translateX(100%); }
 .btn-primary:active { transform: translateY(0); }
 
 a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
@@ -290,7 +365,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 }
 .navtoggle:hover {
   color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  border-color: var(--accent-edge);
   box-shadow: 0 6px 18px -10px var(--accent-glow);
 }
 
@@ -308,7 +383,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .navtoggle .bars::before { top: -5px; }
 .navtoggle .bars::after  { top:  5px; }
 
-.sitenav.is-open .navtoggle { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.sitenav.is-open .navtoggle { color: var(--accent); border-color: var(--accent-edge); }
 .sitenav.is-open .navtoggle .bars { background: transparent; }
 .sitenav.is-open .navtoggle .bars::before { transform: translateY(5px) rotate(45deg); }
 .sitenav.is-open .navtoggle .bars::after  { transform: translateY(-5px) rotate(-45deg); }
@@ -348,6 +423,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
  * the first things to go. */
 @media (prefers-reduced-motion: reduce) {
   .btn-primary:hover { transform: none; }
+  .btn-primary::before { display: none; }
   .navlinks a::after,
   .navcta .ghost::after,
   .navtoggle .bars,

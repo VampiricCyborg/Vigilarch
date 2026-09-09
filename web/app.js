@@ -95,13 +95,41 @@ const logErr = (text) => log([['err', '! ' + text]]);
 /** Run a wasm call, reporting any thrown `DemoError` into the transcript rather
  *  than the console. The ledger's refusals are results, not crashes. */
 function guard(fn) {
+  let after = null;
   try {
-    fn();
+    after = fn() || null;
   } catch (e) {
     logErr(e && e.message ? e.message : String(e));
   }
   render();
+  if (after) after();
 }
+
+// ---------------------------------------------------------------------------
+// Flashes -- presentation only
+// ---------------------------------------------------------------------------
+
+/** Plays a one-shot animation on an element by adding a class and dropping it
+ *  when the animation ends.
+ *
+ *  Nothing here decides anything. Every element it touches was already put into
+ *  its state by `render()` from a verdict the ledger returned; this only draws
+ *  the eye to the change. The three kinds map to the palette's three meanings --
+ *  the accent for a system event, sealed for a sealing, disputed for a
+ *  violation -- so a flash can never say something the colour does not. */
+function flash(node, kind) {
+  if (!node) return;
+  const cls = 'fx-' + kind;
+  node.classList.remove(cls);
+  // Reading offsetWidth restarts the animation when the same row is flashed
+  // twice in quick succession.
+  void node.offsetWidth;
+  node.classList.add(cls);
+  node.addEventListener('animationend', () => node.classList.remove(cls), { once: true });
+}
+
+const flashAll = (selector, kind) =>
+  document.querySelectorAll(selector).forEach((n) => flash(n, kind));
 
 function doAppend(node) {
   guard(() => {
@@ -110,6 +138,7 @@ function doAppend(node) {
     logCmd(`append ${node} ${JSON.stringify(text)}`);
     logOut(`seq=${r.seq} id=${shortId(r.id)} prev=${r.prev ? shortId(r.prev) : '∅ (genesis)'}`);
     selected = { node, id: r.id };
+    return () => flash(document.querySelector(`#chain-${node} li[aria-selected="true"]`), 'append');
   });
 }
 
@@ -122,6 +151,11 @@ function doExchange() {
     logOut(`A attests B@${ab.subject_seq} head=${shortId(ab.subject_head)} -> ${shortId(ab.id)}`);
     logOut(`B attests A@${ba.subject_seq} head=${shortId(ba.subject_head)} -> ${shortId(ba.id)}`);
     logOk('each node now holds an attestation over the other\'s chain (spec/02 §3)');
+    return () => {
+      flash($('att-table'), 'append');
+      // Whatever the ledger has just decided is sealed, and only that.
+      flashAll('.chain li.st-sealed', 'sealed');
+    };
   });
 }
 
@@ -147,6 +181,10 @@ function doEquivocate() {
     }
     // The withheld sibling is the interesting one: no witness ever saw it.
     selected = { node, id: r.sibling.id };
+    return () => {
+      flashAll('.quarantine-banner:not([hidden])', 'fork');
+      flashAll('.chain li.st-disputed, .row-head .badge.fork', 'fork');
+    };
   });
 }
 
