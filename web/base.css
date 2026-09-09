@@ -17,17 +17,28 @@
  *      affordances. It is deliberately not one of the three above, so that
  *      "this is clickable" can never be misread as "this is sealed".
  *
+ * The accent is an indigo-violet. It was picked over teal on rule 2 alone:
+ * teal sits close enough to --sealed that a hovered control and a sealed
+ * verdict could be confused at a glance, and that is the one confusion this
+ * palette cannot afford. Violet collides with nothing in the state set, and
+ * two entangled histories is roughly what it is standing in for.
+ *
  * Dark is the default because the dashboard is a transcript; the light palette
  * is a full second design, not an inversion. */
 
 :root {
-  /* --- ground and structure ------------------------------------------- */
-  --bg:        #0e1116;   /* the page ground, both pages */
-  --bg-deep:   #090c11;   /* landing bands that sit behind the measure */
-  --panel:     #151a21;
-  --panel-2:   #1b212a;
-  --rule:      #2a323d;   /* a stated border */
-  --hair:      #1c222b;   /* a structural hairline: band separators, grid */
+  /* --- ground and structure -------------------------------------------
+   * Three depths, not one. --bg-sunken sits BEHIND the page plane (the
+   * ticker), --bg / --bg-deep are the plane itself, and --panel / --panel-2
+   * sit in front of it. A surface that means "recessed" and a surface that
+   * means "raised" must not be the same rectangle in two positions. */
+  --bg:        #0a0d12;   /* the page ground, both pages */
+  --bg-deep:   #070910;   /* landing bands that sit behind the measure */
+  --bg-sunken: #05070b;   /* recessed: the ticker rail */
+  --panel:     #141a23;
+  --panel-2:   #1a212b;
+  --rule:      #29313d;   /* a stated border */
+  --hair:      #1b212b;   /* a structural hairline: band separators, grid */
 
   /* --- ink -------------------------------------------------------------- */
   --ink:        #ced5df;
@@ -44,8 +55,24 @@
   --disputed-bg: #3a1512;
 
   /* --- structural accent ------------------------------------------------ */
-  --accent:      #6aa9e0;
-  --accent-bg:   rgba(106, 169, 224, 0.11);
+  --accent:      #8d8bf7;
+  --accent-bg:   rgba(141, 139, 247, 0.13);
+  --accent-line: rgba(141, 139, 247, 0.26);  /* separators, quiet edges */
+  --accent-glow: rgba(141, 139, 247, 0.30);  /* haloes on raised surfaces */
+  --accent-wash: rgba(141, 139, 247, 0.085); /* the two focal gradients */
+
+  /* --- page texture ------------------------------------------------------
+   * A sparse dot grid, low enough in contrast to read as paper rather than as
+   * pattern. It is the one piece of decoration on the page and it is at least
+   * about the subject: a lattice of points with nothing joining them until a
+   * meeting does. */
+  --grid-dot:  rgba(150, 168, 210, 0.055);
+  --grid-size: 26px;
+
+  /* --- elevation --------------------------------------------------------- */
+  --shadow-lift: 0 18px 44px -22px rgba(0, 0, 0, 0.85);
+  --shadow-inset: inset 0 7px 16px -10px rgba(0, 0, 0, 0.95),
+                  inset 0 -7px 16px -10px rgba(0, 0, 0, 0.9);
 
   /* --- type ------------------------------------------------------------- */
   --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
@@ -57,6 +84,7 @@
   :root {
     --bg:        #f7f6f3;
     --bg-deep:   #efece6;
+    --bg-sunken: #e6e2da;
     --panel:     #ffffff;
     --panel-2:   #f0eee9;
     --rule:      #d6d2ca;
@@ -74,9 +102,28 @@
     --disputed:    #b32318;
     --disputed-bg: #fbe3e0;
 
-    --accent:      #14568f;
-    --accent-bg:   rgba(20, 86, 143, 0.09);
+    --accent:      #4a3fbf;
+    --accent-bg:   rgba(74, 63, 191, 0.10);
+    --accent-line: rgba(74, 63, 191, 0.24);
+    --accent-glow: rgba(74, 63, 191, 0.22);
+    --accent-wash: rgba(74, 63, 191, 0.055);
+
+    --grid-dot:  rgba(60, 55, 90, 0.055);
+
+    --shadow-lift: 0 18px 40px -24px rgba(40, 36, 60, 0.45);
+    --shadow-inset: inset 0 7px 16px -12px rgba(40, 36, 60, 0.38),
+                    inset 0 -7px 16px -12px rgba(40, 36, 60, 0.32);
   }
+}
+
+/* Anchor navigation glides rather than jumps, and stops clear of the sticky
+ * bar instead of underneath it. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 4.5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 /* ===========================================================================
@@ -87,22 +134,33 @@
 .sitenav {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 40;
   display: flex;
   align-items: center;
   gap: 1.5rem;
   padding: 0 1.25rem;
   height: 52px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
   border-bottom: 1px solid var(--hair);
   font: 12px/1 var(--mono);
+  transition: background .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+
+/* Once the page has moved under it the bar earns a little more presence: a
+ * denser ground and a hairline of accent, so it reads as a layer above the
+ * content rather than as part of the first section. */
+.sitenav.is-stuck {
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--accent) 22%, var(--hair));
+  box-shadow: 0 14px 34px -26px rgba(0, 0, 0, 0.95);
 }
 
 /* No color-mix support: fall back to the opaque ground rather than to text
  * sliding under a transparent bar. */
 @supports not (background: color-mix(in srgb, red 50%, transparent)) {
-  .sitenav { background: var(--bg); }
+  .sitenav, .sitenav.is-stuck { background: var(--bg); }
 }
 
 .sitenav-inner {
@@ -117,7 +175,8 @@
 /* The mark is the window glyph: two bounded caps with a span between them —
  * the one shape this whole project is about. */
 .mark { display: flex; align-items: center; gap: .5rem; text-decoration: none; color: var(--ink-strong); }
-.mark svg { display: block; overflow: visible; }
+.mark svg { display: block; overflow: visible; transition: color .2s ease; }
+.mark:hover svg { color: var(--accent); }
 .mark .wordmark {
   font-family: var(--display);
   font-weight: 700;
@@ -127,12 +186,56 @@
 }
 
 .navlinks { display: flex; gap: 1.25rem; margin-left: 1rem; }
-.navlinks a { color: var(--ink-dim); text-decoration: none; }
+
+/* A link says where it goes on hover, and the bar says where you are: the same
+ * rule slides in under a hovered link and stays put under the section the page
+ * is currently scrolled into. */
+.navlinks a {
+  position: relative;
+  padding: .35rem 1px;
+  color: var(--ink-dim);
+  text-decoration: none;
+  transition: color .18s ease;
+}
+.navlinks a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: .05rem;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .22s cubic-bezier(.22, .61, .36, 1);
+}
 .navlinks a:hover { color: var(--ink); }
+.navlinks a:hover::after { transform: scaleX(1); }
+.navlinks a.is-active { color: var(--accent); }
+.navlinks a.is-active::after { transform: scaleX(1); }
 
 .navcta { display: flex; align-items: center; gap: .9rem; margin-left: auto; }
-.navcta .ghost { color: var(--ink-dim); text-decoration: none; white-space: nowrap; }
+.navcta .ghost {
+  position: relative;
+  color: var(--ink-dim);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .18s ease;
+}
+.navcta .ghost::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -.3rem;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .22s cubic-bezier(.22, .61, .36, 1);
+}
 .navcta .ghost:hover { color: var(--ink); }
+.navcta .ghost:hover::after { transform: scaleX(1); }
 
 /* The one filled control on either page. It is --accent, never a state colour:
  * "clickable" must not be able to read as "sealed". */
@@ -147,8 +250,14 @@
   color: var(--accent);
   text-decoration: none;
   white-space: nowrap;
+  transition: background .2s ease, box-shadow .2s ease, transform .2s ease;
 }
-.btn-primary:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 8px 22px -10px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.btn-primary:active { transform: translateY(0); }
 
 a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
   outline: 2px solid var(--accent);
@@ -156,6 +265,92 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
   border-radius: 2px;
 }
 
+/* --- the narrow-screen menu -------------------------------------------------
+ * Below 860px the link row has nowhere to sit, so the bar becomes a two-row
+ * panel: the mark and the one primary action stay on the top row with the
+ * toggle, and the section links plus the repository link drop underneath when
+ * it is opened. `display: contents` on .navcta is what lets its two children
+ * take different rows without the markup being rearranged for one breakpoint.
+ * Closed, nothing is rendered but the toggle; there is no off-screen drawer to
+ * trap focus in. */
+
+.navtoggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease, box-shadow .2s ease;
+}
+.navtoggle:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 6px 18px -10px var(--accent-glow);
+}
+
+.navtoggle .bars { position: relative; display: block; }
+.navtoggle .bars,
+.navtoggle .bars::before,
+.navtoggle .bars::after {
+  width: 15px;
+  height: 1.5px;
+  background: currentColor;
+  transition: transform .22s cubic-bezier(.22, .61, .36, 1), background-color .15s ease;
+}
+.navtoggle .bars::before,
+.navtoggle .bars::after { content: ""; position: absolute; left: 0; }
+.navtoggle .bars::before { top: -5px; }
+.navtoggle .bars::after  { top:  5px; }
+
+.sitenav.is-open .navtoggle { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.sitenav.is-open .navtoggle .bars { background: transparent; }
+.sitenav.is-open .navtoggle .bars::before { transform: translateY(5px) rotate(45deg); }
+.sitenav.is-open .navtoggle .bars::after  { transform: translateY(-5px) rotate(-45deg); }
+
 @media (max-width: 860px) {
-  .navlinks { display: none; }
+  .sitenav { height: auto; min-height: 52px; }
+  .sitenav-inner { flex-wrap: wrap; row-gap: 0; min-height: 52px; padding-block: .6rem; }
+
+  .navcta { display: contents; }
+  .navcta .btn-primary { order: 2; margin-left: auto; }
+  .navtoggle { display: inline-flex; order: 3; }
+  .navlinks { order: 4; flex-basis: 100%; margin-left: 0; }
+  .navcta .ghost { order: 5; flex-basis: 100%; }
+
+  .navlinks, .navcta .ghost { display: none; }
+
+  .sitenav.is-open .navlinks { display: flex; flex-direction: column; gap: 0; }
+  .sitenav.is-open .navcta .ghost { display: block; }
+
+  .sitenav.is-open .navlinks a,
+  .sitenav.is-open .navcta .ghost {
+    padding: .85rem .15rem;
+    border-top: 1px solid var(--hair);
+  }
+  .sitenav.is-open .navlinks a::after,
+  .sitenav.is-open .navcta .ghost::after { bottom: -1px; }
+  .sitenav.is-open .navcta .ghost { padding-bottom: 1rem; }
+}
+
+@media (max-width: 420px) {
+  .sitenav { padding-inline: .85rem; }
+  .sitenav-inner { gap: .6rem; }
+  .navcta .btn-primary { padding: .45rem .6rem; }
+}
+
+/* Motion is an enhancement everywhere on this site; the lift and the slide are
+ * the first things to go. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:hover { transform: none; }
+  .navlinks a::after,
+  .navcta .ghost::after,
+  .navtoggle .bars,
+  .navtoggle .bars::before,
+  .navtoggle .bars::after { transition: none; }
 }

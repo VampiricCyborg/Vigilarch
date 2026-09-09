@@ -1,10 +1,17 @@
 // Vigilarch landing page.
 //
-// Two jobs, and neither of them is computing anything about a ledger:
+// Three jobs, and none of them is computing anything about a ledger:
 //
 //   1. Drive a short, fixed scenario through `vigil-ledger` compiled to
 //      wasm32-unknown-unknown, and print what comes back.
 //   2. Some reveal animation on numbers that are already in the DOM.
+//   3. Presentation: which section the header should point at, and a fade for
+//      each section as it comes into view. Both are attached from here rather
+//      than written into the markup, so the page without JavaScript is the
+//      whole page, plainly visible, rather than a screen of nothing.
+//
+// The header bar's own behaviour — the narrow-screen menu, the stuck state —
+// lives in nav.js, because demo.html carries the same bar.
 //
 // Every verdict, bound, witness depth, content address and fork proof on this
 // page is a value returned by the wasm module. There is no chain walk, no DAG,
@@ -414,9 +421,100 @@ function ticker() {
 }
 
 // ---------------------------------------------------------------------------
+// Where am I — the header's active section
+// ---------------------------------------------------------------------------
+
+/** The nav marks the section the reading position is currently inside. Driven
+ *  off the scroll offset rather than an IntersectionObserver: sections here run
+ *  from a screenful to several screenfuls, so "which one is visible" has no
+ *  single answer, while "which one has the reading line passed into" has
+ *  exactly one and never flickers between two.
+ *
+ *  Above the first section nothing is marked, which is correct — the hero is
+ *  not in the nav. */
+function scrollSpy() {
+  const nav = document.querySelector('.sitenav');
+  const links = Array.from(document.querySelectorAll('.navlinks a[href^="#"]'));
+  const marks = links
+    .map((a) => ({ a, el: document.getElementById(a.getAttribute('href').slice(1)) }))
+    .filter((m) => m.el);
+  if (!marks.length) return;
+
+  let queued = false;
+
+  const update = () => {
+    queued = false;
+    // The reading line: just below the bar, a little into the viewport.
+    const line = window.scrollY + (nav ? nav.offsetHeight : 52) + 120;
+    let active = null;
+    for (const m of marks) {
+      const top = m.el.getBoundingClientRect().top + window.scrollY;
+      if (top <= line) active = m;
+    }
+    for (const m of marks) m.a.classList.toggle('is-active', m === active);
+  };
+
+  const onScroll = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(update);
+  };
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  update();
+}
+
+// ---------------------------------------------------------------------------
+// Section reveal
+// ---------------------------------------------------------------------------
+
+/** Each section fades and lifts once, the first time it enters the viewport,
+ *  and is then left alone — it does not replay on the way back up, which is
+ *  what makes a long page feel restless rather than considered.
+ *
+ *  The classes are added here and not in index.html on purpose. If this file
+ *  never runs, or the visitor has asked for reduced motion, no element is ever
+ *  given `opacity: 0` and the page is simply the page. */
+function reveal() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (!('IntersectionObserver' in window)) return;
+
+  const blocks = document.querySelectorAll('main > section:not(.hero) > .measure');
+  if (!blocks.length) return;
+
+  // Rows inside a revealed block slide in behind it, a few tens of ms apart, so
+  // a grid arrives as a grid rather than as one rectangle.
+  const ROWS = '.stat-grid > .stat, .steps > li, .grid-6 > .card, .checklist > li, .faq';
+
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        io.unobserve(entry.target);
+        entry.target.classList.add('is-in');
+      }
+    },
+    { rootMargin: '0px 0px -12% 0px', threshold: 0.06 },
+  );
+
+  for (const block of blocks) {
+    block.classList.add('reveal');
+    block.querySelectorAll(ROWS).forEach((row, i) => {
+      row.classList.add('r-item');
+      // Capped so a ten-row checklist does not end on a half-second delay.
+      row.style.setProperty('--i', String(Math.min(i, 7)));
+    });
+    io.observe(block);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 
 ticker();
 countUp();
+scrollSpy();
+reveal();
 runLedger();

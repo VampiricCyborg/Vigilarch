@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vigilarch — sealing, interactively</title>
 <meta name="description" content="Two disconnected nodes, one attestation exchange. The real vigil-ledger, compiled to WASM, deciding what is sealed and what is not.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 14'%3E%3Cg stroke='%238d8bf7' fill='none'%3E%3Cpath d='M1.5 1v12' stroke-width='2'/%3E%3Cpath d='M3 7h20' stroke-width='1.2' stroke-dasharray='3 2.5' opacity='.6'/%3E%3Cpath d='M24.5 1v12' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap">
@@ -25,7 +26,7 @@
       </svg>
       <span class="wordmark">VIGILARCH</span>
     </a>
-    <nav class="navlinks">
+    <nav class="navlinks" id="navmenu">
       <a href="./index.html#how">How it works</a>
       <a href="./index.html#invariants">Invariants</a>
       <a href="./index.html#limits">Limits</a>
@@ -35,6 +36,12 @@
       <a class="ghost" href="https://github.com/VampiricCyborg/Vigilarch">View on GitHub</a>
       <a class="btn-primary" href="./index.html">&#8592; Back to overview</a>
     </div>
+    <!-- Narrow-screen menu. base.css hides it above 860px, where the link row
+         fits in the bar; nav.js is the only thing that toggles it. -->
+    <button class="navtoggle" id="navtoggle" type="button"
+            aria-expanded="false" aria-controls="navmenu" aria-label="Open navigation">
+      <span class="bars" aria-hidden="true"></span>
+    </button>
   </div>
 </header>
 
@@ -137,6 +144,7 @@
   </p>
 </footer>
 
+<script type="module" src="./nav.js"></script>
 <script type="module" src="./app.js"></script>
 </body>
 </html>
