@@ -371,7 +371,7 @@ that the suite does not check.
 | `vigil-sim --scale-up` runs every scenario once per seed over a range, counts pass/fail per seed with the total defended by an assertion, and exits non-zero naming the first failing seed | the same |
 | Golden vectors regenerate identically, so drift between generator and checked-in bytes cannot pass unnoticed | CI regenerates and diffs |
 
-Current suite: 149 tests native, 13 of them re-run under `wasm32-wasip1`; `vigil-core`
+Current suite: 158 tests native, 13 of them re-run under `wasm32-wasip1`; `vigil-core`
 and `vigil-ledger` both compile to `wasm32-unknown-unknown` (invariant I2).
 
 Two observation body variants are deliberately **not** implemented. Variants 3 (`Form`)
@@ -581,8 +581,8 @@ cost that a deployment under GDPR or DPDP would have to answer for. The usual mi
 — keep content encrypted and discard the key — shrinks the problem without eliminating
 it, since the ordering metadata survives by design.
 
-**Licence.** Not yet chosen. The workspace currently declares `UNLICENSED`, which is
-wrong for a public repository and is tracked as a defect to fix before publication.
+**Licence.** Dual-licensed under `MIT OR Apache-2.0`, the standard Rust ecosystem
+convention. See the Licence section at the end of this file.
 
 **The DAG has no edge between two authors' chains.** An `Attestation` carries the
 subject's head, never the witness's, so every attestation is confined to its subject's
@@ -638,3 +638,8 @@ CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime cargo test -p vigil-core --target was
   scope cut; where it disagrees with this README or the specs, it loses.
 - `docs/REALITY-BRIEF.md` — a one-time scope audit recording why the cuts were made.
 - `docs/adr/` — decision records. Any change to the wire format requires one.
+
+## Licence
+
+© 2026 Madhav. Dual-licensed under either of [MIT](LICENSE-MIT) or
+[Apache-2.0](LICENSE-APACHE) at your option.
