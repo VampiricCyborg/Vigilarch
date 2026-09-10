@@ -5,7 +5,7 @@ name: Pages
 # crates/vigil-wasm needs compiling, exactly as web/build.sh does it locally.
 #
 # One-time setup after this lands: repository Settings → Pages → Build and
-# deployment → Source = "GitHub Actions".
+# deployment → Source = "GitHub Actions". (Done.)
 
 on:
   push:
