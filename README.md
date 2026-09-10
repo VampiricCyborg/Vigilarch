@@ -1,7 +1,37 @@
 # Vigilarch
 
-**An append-only incident ledger that can defend *when* a record was created, with no
-server, no consensus, and no trusted clock.**
+**An append-only incident ledger that defends *when* a record was created — with no
+server, no consensus, and no trusted clock. When two disconnected nodes meet they co-sign
+each other's latest chain entry, and that mutual signature — not any device clock — is
+what proves a record existed no later than the meeting.**
+
+[![Vigilarch dashboard — the real vigil-ledger compiled to WebAssembly, deciding what is sealed and what is not](docs/assets/hero-demo.gif)](https://vampiriccyborg.github.io/Vigilarch/)
+
+The interactive dashboard in [`web/`](web/), running the real `vigil-ledger` compiled to
+`wasm32` — the same chain, DAG, bracketing and fork-detection code `vigil-sim` and
+`vigil-node` run natively. Append to two disconnected chains, exchange one attestation,
+watch `O0` become **sealed**, then equivocate and watch the key get convicted while its
+withheld sibling stays **unsealed**. [Run it yourself →](https://vampiriccyborg.github.io/Vigilarch/)
+
+---
+
+[![CI](https://github.com/VampiricCyborg/Vigilarch/actions/workflows/ci.yml/badge.svg)](https://github.com/VampiricCyborg/Vigilarch/actions/workflows/ci.yml)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#licence)
+[![Seeded runs: 3000/3000 pass](https://img.shields.io/badge/seeded%20runs-3000%2F3000%20pass-brightgreen.svg)](#measured-results)
+
+**3 scenarios × 1000 seeds → `PASS 3000/3000` runs, 0 failing seeds.** Every number is
+stdout from one command on a clean checkout — [how it is measured](#measured-results).
+Test suite: 158 native, 13 re-run under `wasm32-wasip1`; `vigil-core` and `vigil-ledger`
+compile to `wasm32-unknown-unknown` (invariant I2).
+
+Vigilarch replaces the clock with **contact**: a record's creation time is bracketed by
+the attestations either side of it in its own chain, backdating is confined to that
+bracket, and escaping the bracket is either a chain-order contradiction or a fork — both
+detectable, and both attributable to a key. **Proof of time becomes a property of a
+meeting rather than of a clock.**
+
+<details>
+<summary><b>Why this exists — the temporal question in an incident investigation</b></summary>
 
 Organisations that run physical work across separated sites — construction, tunnelling,
 mining, ports, utilities field operations — depend on incident and near-miss reports as
@@ -23,6 +53,8 @@ contradiction or a fork — both detectable, and both attributable to a key.
 
 Proof of time becomes a property of a meeting rather than of a clock.
 
+</details>
+
 ## What this does *not* claim
 
 Stated up front, because a guarantee that is not stated precisely is not a guarantee.
@@ -40,7 +72,86 @@ Stated up front, because a guarantee that is not stated precisely is not a guara
   (2002). The contribution here is the application to disconnected incident reporting,
   the honest surfacing of what is *not* known, and the measurement — not the primitives.
 
-## Demo
+## How a meeting proves time
+
+The message exchange is `spec/02-entanglement.md` §3.1. Checkpoints first, then a mutual
+attestation, then each node embeds the attestation *naming itself as subject* into its
+own next chain entry via the `acks` field (§3.4).
+
+```mermaid
+sequenceDiagram
+    participant A as Node A
+    participant W as Node W
+    Note over A,W: partitioned — no network, no shared clock
+    A->>A: append O0 (seq 0), then O1 (seq 1)
+    W->>W: append its own entries independently
+    Note over A,W: the nodes meet (radio range, sneakernet, a mule)
+    A-->>W: hello — negotiate wire version 1
+    A-->>W: Checkpoint { node A, head H_a, seq s_a }
+    W-->>A: Checkpoint { node W, head H_w, seq s_w }
+    A-->>W: Attestation { witness A, subject W, subject_head H_w, subject_seq s_w }
+    W-->>A: Attestation U { witness W, subject A, subject_head H_a, subject_seq s_a }
+    A->>A: append next entry with acks = [U] — commits A's chain to the meeting
+    W->>W: append next entry, acking A's attestation about W
+    Note over W: from W's copy of A's chain: bracket(O0) = SEALED<br/>upper bound U, witness depth 1<br/>window [genesis, U] — still open below: nothing proves O0 didn't exist earlier
+```
+
+`U` is `W`'s signature that it saw `A` present a chain head at `seq s_a`. Because `O0` is
+a chain ancestor of that head, `O0` existed no later than the moment `W` signed — the
+sealing theorem of §5.2. The bound is upper-only: the window below `O0` stays open to
+genesis (§8.1). Backdating `O0` past the meeting would require showing `W` a chain
+without `O0` at its `seq` — a fork, detectable the moment both branches reach one
+verifier (§6).
+
+## The crates, and the edge that isn't there
+
+```mermaid
+graph TD
+    core["vigil-core<br/>CBOR · BLAKE3 · Ed25519 · HLC · ForkProof"]
+    ledger["vigil-ledger<br/>Store trait · hash chains · attestation DAG<br/>bracketing · fork detection · quarantine"]
+    sim["vigil-sim<br/>seeded simulator"]
+    node["vigil-node<br/>loopback HTTP ledger"]
+    wasm["vigil-wasm<br/>the browser demo"]
+    verify["vigil-verify<br/>independent verifier"]
+    ledger --> core
+    sim --> ledger
+    node --> ledger
+    wasm --> ledger
+    verify --> core
+```
+
+The edge that is deliberately absent is `vigil-verify → vigil-ledger`. `vigil-verify`
+links only `vigil-core` — not `vigil-ledger`, not as a dependency and not as a
+dev-dependency — so its chain check, DAG construction and bracketing are a second
+implementation written from `spec/02`, not a call back into the code that built the
+evidence pack. `vigil-wasm` is the opposite by design: it links `vigil-ledger` directly,
+to run the *real* chain, DAG, bracketing and fork-detection code byte-for-byte under
+`wasm32-unknown-unknown` (invariant I2).
+
+## The pipeline
+
+```mermaid
+flowchart LR
+    o["observe<br/>captured on a<br/>disconnected device"]
+    c["chain<br/>hash-linked into the<br/>device's own chain"]
+    m["meet<br/>two nodes co-sign<br/>each other's head"]
+    s["seal<br/>the attestation bounds<br/>creation from above"]
+    v["verify<br/>rebuild the DAG<br/>from the pack alone"]
+    o --> c --> m --> s --> v
+```
+
+`observe` and `chain` are `vigil-core` plus a `Store`; `meet` and `seal` are
+`vigil-ledger`'s attestation DAG; `verify` is `vigil-verify`, which rebuilds that DAG
+from the evidence pack alone and exits non-zero on any tamper.
+
+---
+
+Everything below is unchanged in substance from earlier revisions of this README —
+only its default visibility has. A casual visitor has the thesis, the diagrams and the
+measured headline above; the sections here are for evaluating the project in full.
+
+<details>
+<summary><b>Demo — one command, end to end</b></summary>
 
 One script runs the whole thesis end to end on one machine, using only what v1 ships —
 no cross-process networking between nodes, because that needs `vigil-sync` (v2):
@@ -296,7 +407,10 @@ consensus, and no assumption of connectivity.
 
 </details>
 
-## Status
+</details>
+
+<details>
+<summary><b>Project status</b></summary>
 
 **M0 done; M1 (entanglement) core landed.** The wire format is specified and `vigil-core`
 implements it — deterministic CBOR, BLAKE3 content addressing, Ed25519 signatures, the
@@ -333,7 +447,10 @@ customers, sites, hardware or users. Everything runs on one machine from a seed.
 scope is deliberately narrower than `docs/VIGILARCH.md`, which is aspirational and
 predates a scope cut; `docs/REALITY-BRIEF.md` records the reasoning.
 
-### What exists today
+</details>
+
+<details>
+<summary><b>What exists today</b></summary>
 
 `spec/01-wire-format.md`, `spec/02-entanglement.md` and `spec/03-export-pack.md`, each
 with worked detail reproducible by hand; six golden vectors in `testdata/vectors/`;
@@ -381,7 +498,10 @@ rejected with an error naming the gap rather than encoded to a guess. Guessing w
 the implementation the specification, and once a vector were published against the guess,
 correcting it would cost a wire version bump.
 
-### Road to v1
+</details>
+
+<details>
+<summary><b>Road to v1</b></summary>
 
 v1 is **done** when these exist, CI is green on a clean clone, and the evaluation table
 below carries measured numbers. Development stops at that line.
@@ -408,6 +528,11 @@ for it, and it is never cut. `vigil-sim` grows alongside it from the first attes
 onward, not afterwards — every adversarial claim in this repository is evidenced by a
 seeded, reproducible run, and each is paired with an ablation run at the same seed with
 attestations disabled, asserting that the tamper goes *undetected* without them.
+
+</details>
+
+<details>
+<summary><b>Measured results — 3 scenarios × 1000 seeds, verbatim stdout</b></summary>
 
 ### Measured results
 
@@ -468,7 +593,77 @@ key-attribution accuracy as a rate — are **not measured yet** and will not be 
 with estimates. They need the scriptable adversarial suite (partition topology, clock
 rollback, withholding, mule routes) and the demo transcript that ties them together.
 
-## Not built here
+</details>
+
+<details>
+<summary><b>Invariants</b></summary>
+
+I1–I5 are enforced by code and CI today — I5 now has something to enforce it against: the
+bracketing query is conservative one-sidedly, a property test asserts adding evidence
+never widens a bracket, and the simulator asserts its sealing invariant on every run. I6
+is a design commitment recorded now so the constraint exists before the temptation to
+skip it does; v1 has nothing to enforce it against.
+
+1. **No node is the source of truth.** The hub is a convenience peer with no authority an
+   edge node lacks. If the hub burns down, the organisation loses convenience and nothing
+   else.
+2. **One implementation of the ledger.** Chain, attestation and verification logic exists
+   once, in Rust, and stays compilable to `wasm32-unknown-unknown` even though no WASM
+   artifact ships in v1. Storage therefore lives behind a `Store` trait, `rusqlite` is an
+   optional feature, and an in-memory backend is always available.
+3. **Capture is immutable.** `Observation` and `Attestation` are never edited.
+4. **No wall-clock reads in the ledger.** Enforced by `clippy.toml`. All time flows
+   through the HLC, which is a merge hint and never evidence. Device clocks are
+   attacker-controlled input.
+5. **Never overstate what the system knows.** Any computed confidence is conservative
+   one-sidedly, and every simulator run asserts it. Overstating knowledge is the cardinal
+   defect of this system.
+
+---
+
+6. **If semantic interpretation is ever modelled, conflicting values are never silently
+   resolved.** Two supervisors disagreeing on a severity assessment is information, not a
+   merge failure; last-write-wins on a disputed field would be a safety hazard, not just a
+   data-modelling shortcut. v1 has no interpretation layer — no threads, no severity
+   fields, nothing that could conflict — so nothing today enforces this. It is recorded
+   here so the constraint exists before the temptation to skip it does.
+
+</details>
+
+<details>
+<summary><b>Known tensions and open items</b></summary>
+
+Stated here rather than left for a reader to discover.
+
+**Append-only storage versus the right to erasure.** These pull against each other, and
+Vigilarch comes down on the append-only side. A retraction is a new record saying the old
+one is withdrawn; it does not remove what was written, and peers who already hold the
+original keep holding it. That is what makes the evidence claim work, and it is a real
+cost that a deployment under GDPR or DPDP would have to answer for. The usual mitigation
+— keep content encrypted and discard the key — shrinks the problem without eliminating
+it, since the ordering metadata survives by design.
+
+**Licence.** Dual-licensed under `MIT OR Apache-2.0`, the standard Rust ecosystem
+convention. See the Licence section at the end of this file.
+
+**The DAG has no edge between two authors' chains.** An `Attestation` carries the
+subject's head, never the witness's, so every attestation is confined to its subject's
+chain and cross-author records come out `incomparable` — the honest outcome under
+partition. `spec/02` §4.6 describes a mule giving two never-connected sites an ordering
+relationship "through the mule's own chain"; the three literal edge rules do not produce
+that, so the `mule-relay` scenario is on hold pending a spec pass — either a fourth edge
+type or a reinterpretation, recorded as an ADR.
+
+**Seal-edge scope.** `spec/02` §4.2 says a seal reaches "every held observation of S at
+seq m ≤ X.subject_seq"; the implementation instead walks `prev` from the anchored head,
+reaching only its chain ancestors. The two agree on any unforked chain and differ only
+under equivocation, where §4.2's own sealing-theorem proof (§5.2) supports only the
+ancestor reading. §4.2's wording should be tightened to match.
+
+</details>
+
+<details>
+<summary><b>Not built here</b></summary>
 
 Deliberately absent. If something below looks like a gap, it is a decision, not an
 oversight. Several are good ideas deferred to v2 rather than rejected.
@@ -499,7 +694,10 @@ oversight. Several are good ideas deferred to v2 rather than rejected.
 The capture-latency and battery figures in `docs/VIGILARCH.md` require hardware and users
 that do not exist. They are not acceptance criteria for this repository.
 
-## Layout
+</details>
+
+<details>
+<summary><b>Repository layout</b></summary>
 
 ```
 crates/
@@ -537,68 +735,10 @@ for removal. Neither `vigil-sim` nor `vigil-node` depends on any of them: the si
 moves objects over the scripted link directly, and the node is a single process with no
 sync layer to wire up.
 
-## Invariants
+</details>
 
-I1–I5 are enforced by code and CI today — I5 now has something to enforce it against: the
-bracketing query is conservative one-sidedly, a property test asserts adding evidence
-never widens a bracket, and the simulator asserts its sealing invariant on every run. I6
-is a design commitment recorded now so the constraint exists before the temptation to
-skip it does; v1 has nothing to enforce it against.
-
-1. **No node is the source of truth.** The hub is a convenience peer with no authority an
-   edge node lacks. If the hub burns down, the organisation loses convenience and nothing
-   else.
-2. **One implementation of the ledger.** Chain, attestation and verification logic exists
-   once, in Rust, and stays compilable to `wasm32-unknown-unknown` even though no WASM
-   artifact ships in v1. Storage therefore lives behind a `Store` trait, `rusqlite` is an
-   optional feature, and an in-memory backend is always available.
-3. **Capture is immutable.** `Observation` and `Attestation` are never edited.
-4. **No wall-clock reads in the ledger.** Enforced by `clippy.toml`. All time flows
-   through the HLC, which is a merge hint and never evidence. Device clocks are
-   attacker-controlled input.
-5. **Never overstate what the system knows.** Any computed confidence is conservative
-   one-sidedly, and every simulator run asserts it. Overstating knowledge is the cardinal
-   defect of this system.
-
----
-
-6. **If semantic interpretation is ever modelled, conflicting values are never silently
-   resolved.** Two supervisors disagreeing on a severity assessment is information, not a
-   merge failure; last-write-wins on a disputed field would be a safety hazard, not just a
-   data-modelling shortcut. v1 has no interpretation layer — no threads, no severity
-   fields, nothing that could conflict — so nothing today enforces this. It is recorded
-   here so the constraint exists before the temptation to skip it does.
-
-## Known tensions and open items
-
-Stated here rather than left for a reader to discover.
-
-**Append-only storage versus the right to erasure.** These pull against each other, and
-Vigilarch comes down on the append-only side. A retraction is a new record saying the old
-one is withdrawn; it does not remove what was written, and peers who already hold the
-original keep holding it. That is what makes the evidence claim work, and it is a real
-cost that a deployment under GDPR or DPDP would have to answer for. The usual mitigation
-— keep content encrypted and discard the key — shrinks the problem without eliminating
-it, since the ordering metadata survives by design.
-
-**Licence.** Dual-licensed under `MIT OR Apache-2.0`, the standard Rust ecosystem
-convention. See the Licence section at the end of this file.
-
-**The DAG has no edge between two authors' chains.** An `Attestation` carries the
-subject's head, never the witness's, so every attestation is confined to its subject's
-chain and cross-author records come out `incomparable` — the honest outcome under
-partition. `spec/02` §4.6 describes a mule giving two never-connected sites an ordering
-relationship "through the mule's own chain"; the three literal edge rules do not produce
-that, so the `mule-relay` scenario is on hold pending a spec pass — either a fourth edge
-type or a reinterpretation, recorded as an ADR.
-
-**Seal-edge scope.** `spec/02` §4.2 says a seal reaches "every held observation of S at
-seq m ≤ X.subject_seq"; the implementation instead walks `prev` from the anchored head,
-reaching only its chain ancestors. The two agree on any unforked chain and differ only
-under equivocation, where §4.2's own sealing-theorem proof (§5.2) supports only the
-ancestor reading. §4.2's wording should be tightened to match.
-
-## Building
+<details>
+<summary><b>Building</b></summary>
 
 Requires a Rust toolchain (1.85+, edition 2024). On Windows without Visual Studio Build
 Tools, use the GNU toolchain with mingw-w64 on `PATH`:
@@ -629,7 +769,10 @@ rustup target add wasm32-wasip1
 CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime cargo test -p vigil-core --target wasm32-wasip1 --test vectors
 ```
 
-## Documentation
+</details>
+
+<details>
+<summary><b>Documentation</b></summary>
 
 - `spec/` — the wire format, entanglement protocol, export pack and threat model. Versioned from the
   first commit and held to stricter review than code: a protocol change that ships and
@@ -639,7 +782,14 @@ CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime cargo test -p vigil-core --target was
 - `docs/REALITY-BRIEF.md` — a one-time scope audit recording why the cuts were made.
 - `docs/adr/` — decision records. Any change to the wire format requires one.
 
-## Licence
+</details>
+
+<details>
+<summary><b>Licence</b></summary>
+
+### Licence
 
 © 2026 Madhav. Dual-licensed under either of [MIT](LICENSE-MIT) or
 [Apache-2.0](LICENSE-APACHE) at your option.
+
+</details>

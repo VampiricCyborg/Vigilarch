@@ -14,3 +14,9 @@ testdata/scenarios/** -text
 # Same reasoning again: the export-pack fixtures (binary) and the expected-verdict
 # JSON that vigil-verify is cross-checked against are CI-regenerated and byte-compared.
 testdata/packs/** -text
+
+# README media (the captured demo GIF, screenshots). Binary — keep EOL
+# normalisation and diffing off them.
+docs/assets/** -text
+*.gif binary
+*.png binary

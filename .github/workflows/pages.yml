@@ -1,0 +1,64 @@
+name: Pages
+
+# Builds the WebAssembly module for web/ and publishes the directory to GitHub
+# Pages. The pages themselves have no build step (see web/README.md); only
+# crates/vigil-wasm needs compiling, exactly as web/build.sh does it locally.
+#
+# One-time setup after this lands: repository Settings → Pages → Build and
+# deployment → Source = "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'crates/vigil-wasm/**'
+      - 'crates/vigil-core/**'
+      - 'crates/vigil-ledger/**'
+      - 'Cargo.lock'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One live deployment at a time; let an in-progress run finish so a half-built
+# site is never published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-bindgen-cli
+        # Must match the wasm-bindgen version vigil-wasm depends on (Cargo.lock:
+        # 0.2.128). A mismatch here produces a module the generated JS cannot
+        # bind to.
+        run: cargo install wasm-bindgen-cli --version 0.2.128 --locked
+
+      - name: Build the module into web/pkg/
+        run: ./web/build.sh
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
