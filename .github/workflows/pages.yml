@@ -43,8 +43,17 @@ jobs:
       - name: Install wasm-bindgen-cli
         # Must match the wasm-bindgen version vigil-wasm depends on (Cargo.lock:
         # 0.2.128). A mismatch here produces a module the generated JS cannot
-        # bind to.
-        run: cargo install wasm-bindgen-cli --version 0.2.128 --locked
+        # bind to. Download the prebuilt binary rather than `cargo install` —
+        # compiling the CLI from source costs minutes on every cache miss.
+        run: |
+          VERSION=0.2.128
+          TARBALL=wasm-bindgen-${VERSION}-x86_64-unknown-linux-musl.tar.gz
+          curl -fsSL -o /tmp/wasm-bindgen.tar.gz \
+            "https://github.com/rustwasm/wasm-bindgen/releases/download/${VERSION}/${TARBALL}"
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf /tmp/wasm-bindgen.tar.gz -C "$HOME/.local/bin" --strip-components=1 \
+            "wasm-bindgen-${VERSION}-x86_64-unknown-linux-musl/wasm-bindgen"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Build the module into web/pkg/
         run: ./web/build.sh
